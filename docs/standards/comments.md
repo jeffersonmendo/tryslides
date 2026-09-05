@@ -1,0 +1,531 @@
+# Comments
+
+This document defines how comments should be written and maintained in this project.
+
+Comments exist to preserve context that cannot be communicated clearly enough through code, naming, types, or structure alone.
+
+The goal is not to document every line. The goal is to preserve reasoning, constraints, invariants, contracts, and non-obvious behavior that future developers or coding agents would otherwise lose.
+
+> Code should communicate what happens. Comments should preserve why it happens that way.
+
+---
+
+## 1. Do Not Narrate Obvious Code
+
+Comments should not repeat what the next line already says.
+
+Avoid:
+
+```ts id="gyyxnr"
+// Get the user
+const user = await getUser(user_id)
+
+// Check if the user exists
+if (!user) {
+  // Return null
+  return null
+}
+```
+
+Nothing important is added by those comments.
+
+A useful comment explains information that cannot be inferred easily:
+
+```ts id="guamlp"
+// The provider may send the same webhook multiple times,
+// so this operation must remain idempotent.
+await processPaymentEvent(event)
+```
+
+or:
+
+```ts id="lxt9wz"
+// Keep the previous revision until persistence succeeds.
+// Removing it earlier could leave the editor without a
+// recoverable state after a failed save.
+const previous_revision = current_revision
+```
+
+The code describes the operation.
+
+The comment preserves the reason behind the implementation.
+
+---
+
+## 2. Preserve Non-Obvious Constraints
+
+Add a comment when changing apparently harmless code could violate an important constraint.
+
+This commonly applies to:
+
+- provider limitations
+- browser behavior
+- framework workarounds
+- concurrency requirements
+- compatibility constraints
+- performance decisions
+- security requirements
+- ordering requirements
+- temporary migrations
+
+Example:
+
+```ts id="dgae7x"
+// Stripe requires the raw request body for signature
+// verification. Do not parse the body before this point.
+const payload = await request.text()
+```
+
+Without that context, a future developer could reasonably refactor the code and accidentally break the integration.
+
+---
+
+## 3. Explain Important Invariants
+
+When the system depends on a condition always remaining true, document it if the invariant cannot be expressed clearly enough through types or architecture.
+
+Example:
+
+```ts id="k3is37"
+// The server revision must only increase after persistence
+// succeeds. The client uses this value for conflict detection.
+let server_revision = document.revision
+```
+
+A useful invariant comment should make clear:
+
+```text id="q2mi7y"
+What must remain true?
+Why must it remain true?
+What could break if it changes?
+```
+
+Whenever possible, enforce invariants through code and types first.
+
+A comment explains an invariant; it does not enforce one.
+
+---
+
+## 4. Use TSDoc When a Public Contract Needs More Context
+
+Exported capabilities may use TSDoc when their behavior cannot be understood completely from their name and types.
+
+Example:
+
+```ts id="ek86sw"
+/**
+ * Persists a presentation only when the supplied revision
+ * matches the latest server revision.
+ *
+ * @throws {RevisionConflictError}
+ * When another writer has already changed the presentation.
+ */
+export async function savePresentationAtRevision(
+  input: SavePresentationInput,
+) {
+  // ...
+}
+```
+
+TSDoc is useful for documenting things such as:
+
+- non-obvious behavior
+- guarantees
+- meaningful side effects
+- invariants
+- expected errors
+- unusual parameter semantics
+- unusual return behavior
+
+Do not automatically add documentation blocks to every exported symbol.
+
+Avoid:
+
+```ts id="8lq5xs"
+/**
+ * Gets a user by ID.
+ *
+ * @param id - The user ID.
+ * @returns The user.
+ */
+export function getUserById(id: string) {
+  // ...
+}
+```
+
+If TypeScript and the function name already describe the contract, additional documentation provides little value.
+
+---
+
+## 5. Do Not Repeat TypeScript in Comments
+
+Types already document structural information.
+
+Avoid:
+
+```ts id="e1boro"
+/**
+ * @param name A string containing the name.
+ * @param age A number containing the age.
+ */
+function createUser(
+  name: string,
+  age: number,
+) {
+  // ...
+}
+```
+
+A comment becomes useful when it communicates information the type cannot:
+
+```ts id="n8xy4w"
+/**
+ * Creates the initial workspace owner.
+ *
+ * The operation must run before invitations are enabled
+ * because every workspace requires exactly one initial owner.
+ */
+function createWorkspaceOwner(
+  input: CreateWorkspaceOwnerInput,
+) {
+  // ...
+}
+```
+
+Use TypeScript to describe structure.
+
+Use comments to preserve meaning and reasoning.
+
+---
+
+## 6. Keep Local Explanations Near the Code
+
+Implementation-specific comments should stay close to the behavior they explain.
+
+Prefer:
+
+```ts id="vbixb6"
+// Keep this sequential. The second operation depends on
+// the revision generated by the first.
+await saveDocument()
+await publishDocument()
+```
+
+A developer should not need to search another unrelated file to discover why those operations cannot run concurrently.
+
+This applies to local reasoning.
+
+Project-wide architectural decisions belong somewhere else.
+
+---
+
+## 7. Architecture Belongs in Project Documentation
+
+Do not turn source comments into long architectural documents.
+
+A decision affecting several modules or the overall product belongs in:
+
+```text id="ome37b"
+/docs/project/architecture.md
+```
+
+or:
+
+```text id="mz4q2r"
+/docs/project/decisions.md
+```
+
+Source code may then provide a short reference:
+
+```ts id="1lu5z6"
+// Persistence is intentionally asynchronous.
+// See DEC-004 in /docs/project/decisions.md.
+queuePersistence(document)
+```
+
+This keeps local comments concise while preserving the complete reasoning in the correct documentation layer.
+
+---
+
+## 8. Workarounds Need Context
+
+Workarounds often look unnecessary to someone who does not know the original problem.
+
+Never leave something like:
+
+```ts id="4ruq8z"
+await new Promise((resolve) => {
+  setTimeout(resolve, 100)
+})
+```
+
+without explaining why it exists.
+
+Prefer:
+
+```ts id="62aom6"
+// Workaround for provider propagation delay.
+// Remove after upstream issue #123 is resolved.
+await wait(100)
+```
+
+When appropriate, reference:
+
+- an upstream issue
+- provider documentation
+- a compatibility requirement
+- a project decision
+
+Do not copy a large external explanation into the source.
+
+Preserve enough information to explain why the workaround exists and when it can disappear.
+
+---
+
+## 9. TODOs Must Describe Concrete Work
+
+A TODO should identify actual unfinished work rather than expressing general dissatisfaction.
+
+Prefer:
+
+```ts id="n0nlaf"
+// TODO: Remove the legacy adapter after all documents
+// have been migrated to revision-based persistence.
+```
+
+Avoid:
+
+```ts id="r3kv9j"
+// TODO: fix
+```
+
+or:
+
+```ts id="acdmhh"
+// TODO: improve this
+```
+
+A useful TODO should answer:
+
+```text id="u2stfc"
+What remains?
+Why does it remain?
+When can it be removed or completed?
+```
+
+If the work requires real tracking, the project's issue or task system should remain the primary source of truth. The comment can reference that task when useful.
+
+---
+
+## 10. Reserve Warning Comments for Real Risks
+
+Strong markers such as `IMPORTANT`, `WARNING`, `NOTE`, or `CAUTION` should not decorate ordinary code.
+
+They are appropriate when an incorrect modification could create a serious or difficult-to-detect problem.
+
+Example:
+
+```ts id="miestl"
+// IMPORTANT:
+// Do not move this validation to the client.
+// This is the authorization boundary for document deletion.
+await authorizeDocumentDeletion(...)
+```
+
+Use these markers sparingly.
+
+When every implementation detail is presented as critical, the warnings lose their value.
+
+---
+
+## 11. Temporary Behavior Needs a Removal Condition
+
+Temporary code should explain why it exists and what allows it to be removed.
+
+Example:
+
+```ts id="yzut37"
+// Temporary compatibility path for documents created
+// before revision 3. Remove after the migration completes.
+if (!document.revision) {
+  return migrateLegacyDocument(document)
+}
+```
+
+Avoid leaving temporary branches whose purpose will become impossible to reconstruct later.
+
+Whenever practical, describe a concrete removal condition rather than vaguely saying that something should be removed in the future.
+
+---
+
+## 12. Delete Old Code Instead of Commenting It Out
+
+Do not preserve obsolete implementations as comments.
+
+Avoid:
+
+```ts id="ju7x76"
+// const user = await oldGetUser(id)
+// return legacyTransform(user)
+
+return getUser(id)
+```
+
+Remove the old implementation.
+
+Version control already preserves its history.
+
+Commented-out code creates ambiguity:
+
+```text id="p60fj3"
+Is this still needed?
+Is this an alternative?
+Can it be deleted?
+Should it be restored?
+```
+
+If an abandoned alternative contains an important architectural lesson, preserve the decision in documentation rather than keeping dead source code.
+
+---
+
+## 13. Comments Must Evolve With the Implementation
+
+Comments that describe behavior are part of maintaining that behavior.
+
+If an implementation changes from:
+
+```text id="fp5jaa"
+synchronous persistence
+```
+
+to:
+
+```text id="yzaius"
+queued persistence
+```
+
+a nearby comment describing synchronous persistence must be updated in the same change.
+
+A stale comment can be more misleading than having no comment at all.
+
+Whenever behavior is refactored, review the comments that explain it.
+
+---
+
+## 14. Coding Agents Must Not Generate Commentary by Default
+
+AI-generated code follows exactly the same commenting rules.
+
+Agents should not automatically annotate every:
+
+- function
+- component
+- variable
+- conditional
+- hook
+- import
+- JSX block
+
+Avoid output such as:
+
+```ts id="1007p3"
+// Initialize state
+const [is_open, setIsOpen] = useState(false)
+
+// Handle button click
+function handleClick() {
+  setIsOpen(true)
+}
+
+// Render the button
+return <Button onClick={handleClick}>Open</Button>
+```
+
+These comments create noise without preserving knowledge.
+
+Agents should comment only when meaningful context would otherwise be lost.
+
+When modifying existing code, they should preserve comments that explain non-obvious behavior and update those comments if the underlying behavior changes.
+
+An existing comment should not be removed simply because the implementation looks obvious before understanding why the comment was originally added.
+
+---
+
+## Comment Decision Guide
+
+Before writing a comment:
+
+```text id="dtd0ke"
+Can clearer code express this information?
+│
+├── Yes → improve the code
+│
+└── No
+    ↓
+Would a future developer need this context?
+│
+├── No → no comment
+│
+└── Yes
+    ↓
+Is this local implementation reasoning?
+│
+├── Yes → source comment
+│
+└── No
+    ↓
+Is this a broader architectural decision?
+    → project documentation
+```
+
+Comments should always have a reason to exist.
+
+---
+
+## Core Principle
+
+> A useful comment preserves knowledge that the implementation alone would lose.
+
+Comments are appropriate for:
+
+- reasoning
+- constraints
+- invariants
+- unusual behavior
+- meaningful side effects
+- workarounds
+- architectural context
+- temporary decisions
+
+They are usually unnecessary for:
+
+- syntax
+- obvious control flow
+- information already expressed by types
+- function names
+- descriptions of the next line
+
+Prefer:
+
+```text id="jfz2gp"
+Clear code
++
+Strong types
++
+Intentional comments
++
+Project documentation for broader decisions
+```
+
+over source files where comments are required simply to understand ordinary code.
+
+---
+
+## Related Standards
+
+- [Code Quality](./code-quality.md) — readability and maintainability.
+- [Functions](./functions.md) — function responsibilities and contracts.
+- [TypeScript](./typescript.md) — types versus documentation.
+- [Architecture](./architecture.md) — architectural reasoning and boundaries.
+- [Errors](./errors.md) — diagnostic context.
+- [Testing](./testing.md) — executable documentation of behavior.

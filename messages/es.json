@@ -1,0 +1,12 @@
+{
+  "Metadata": {
+    "title": "Crear app con Next",
+    "description": "Generado por create next app"
+  },
+  "Home": {
+    "title": "Tu aplicación",
+    "description": "Un starter mínimo de Next.js con tema, interfaz e internacionalización listos.",
+    "view_on_github": "Ver en GitHub",
+    "switch_locale": "View in English"
+  }
+}
