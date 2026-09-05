@@ -1,18 +1,11 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 
-type Props = {
-  params: Promise<{ locale: string }>;
-};
-
-export default async function Home({ params }: Props) {
-  const { locale } = await params;
-
-  setRequestLocale(locale);
-
-  const t = await getTranslations({ locale, namespace: "Home" });
+export default async function Home() {
+  const t = await getTranslations("Home");
+  const locale = await getLocale();
   const next_locale =
     routing.locales.find((candidate) => candidate !== locale) ??
     routing.defaultLocale;
