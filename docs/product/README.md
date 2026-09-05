@@ -1,32 +1,50 @@
-# Product Documentation
+# Tryslides Product Documentation
 
-When you create an application from this starter, replace this file with the index for that product's documentation.
+This directory is the source of truth for Tryslides-specific product
+behavior and architecture.
 
-This directory starts empty intentionally. It is where the team records what the product does and how it behaves—not reusable engineering rules.
+General engineering conventions belong in `docs/standards/`.
+Technology choices belong in `docs/stack.md`.
 
-## Start your product documentation
+The documents here define what Tryslides is and the product-specific
+rules required to build it correctly.
 
-1. Replace this README with a short index for the new product.
-2. Add focused documents only for verified product responsibilities and decisions.
-3. Link those documents from the index as the product grows.
+## Documents
 
-Do not create speculative product documentation. Start with the facts the product needs developers and coding agents to understand.
+- [Product](./product.md) — vision, principles, MVP, workflows, and scope.
+- [Architecture](./architecture.md) — Presentation Core, renderer, editor,
+  commands, boundaries, and architectural invariants.
+- [Persistence](./persistence.md) — presentation storage, revisions,
+  operations, assets, IndexedDB, and Supabase persistence.
+- [Billing](./billing.md) — authentication, subscriptions, pricing, and
+  product access.
 
-## What belongs here
+## Source of Truth
 
-Document product-specific knowledge such as:
+Before implementing product behavior, read the documents relevant to
+the task.
 
-- domain concepts and terminology
-- features and workflows
-- business rules, permissions, and limits
-- billing behavior
-- product-specific architecture and technical decisions
+Do not invent product behavior, domain rules, persistence behavior, or
+architectural conventions already defined here.
 
-## Keep the boundary clear
+If an implementation requires a product or architectural decision that
+is not documented, surface the decision instead of silently creating a
+new convention.
 
-| Documentation | Defines |
-| --- | --- |
-| [`../standards/README.md`](../standards/README.md) | How software is designed, organized, and maintained. |
-| `docs/product/` | What this product does and how it behaves. |
+## Product Principle
 
-Engineering standards remain reusable. Do not change them to encode product-specific requirements.
+Tryslides is built around a presentation domain that is independent
+from its interfaces and infrastructure.
+
+Human users, future AI tools, and future MCP clients must operate
+through the same validated domain operations.
+
+The UI expresses intent.
+
+The Presentation Core decides how the presentation changes.
+
+The Renderer displays presentation state.
+
+Repositories persist presentation state.
+
+Infrastructure must not become the owner of domain behavior.
