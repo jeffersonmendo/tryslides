@@ -14,6 +14,14 @@ The Core must not know:
 
 Persistence changes storage behavior, not presentation behavior.
 
+## Documentation Status
+
+This document defines the target offline-first persistence and synchronization
+architecture. It is not a claim that IndexedDB repositories, Supabase RPCs,
+outbox processing, cache-miss hydration, or conflict resolution are already
+implemented. The current implementation provides the Presentation Core with
+in-memory state and JSON serialization only.
+
 ## Repository Boundary
 
 Application code accesses presentation persistence through an explicit
@@ -26,10 +34,76 @@ Conceptually:
 Possible implementations:
 
     IndexedDbPresentationRepository
-    SupabasePresentationRepository
+    SupabasePresentationSyncAdapter
     InMemoryPresentationRepository
 
-These implementations must preserve the same domain semantics.
+The Application uses IndexedDB as the editor's repository and uses the
+Supabase adapter only to synchronize. In-memory persistence is for deterministic
+tests. Each adapter preserves the same Core domain semantics; none may create a
+second implementation of Core rules.
+
+## Identity, Public Routes, and Lifecycle
+
+Repositories persist both immutable presentation identifiers. `id` is the UUID
+used for internal relations, permissions, operations, and storage. `publicId`
+is an opaque six-character Base62 value, for example `aB7kQ2`, used only for
+the public route:
+
+```text
+/p/{publicId}
+```
+
+The Core validates their formats; the repository must enforce durable global
+uniqueness. A public route must resolve by `publicId`, never expose or accept
+the internal `id` as its public identifier.
+
+Persist the Core lifecycle fields as JSON values: `status`, `createdAt`,
+`updatedAt`, `lastSavedAt`, and `lastPublishedAt`. Times are canonical
+ISO-8601 UTC strings. Application generates `createdAt` and `updatedAt` and
+passes them explicitly to Core commands. `lastSavedAt` is `null` until local
+IndexedDB durability has been confirmed. `lastPublishedAt` is `null` until
+remote publication of the exact revision has been confirmed. Both are recorded
+through their existing Core acknowledgement operations and persisted locally.
+
+Repository sync metadata is deliberately separate from Core lifecycle state:
+
+| Field | Meaning |
+| --- | --- |
+| `lastSyncedAt` | Most recent successful reconciliation with the remote service |
+| `remoteCursor` | Opaque cursor for the remote change stream applied locally |
+| `syncStatus` | Current synchronization state, such as idle, pending, syncing, or blocked by conflict |
+| `lastSyncError` | Most recent synchronization failure diagnostic, or `null` |
+
+Supabase also records its own server audit and operation-receipt timestamps.
+Neither those timestamps nor client lifecycle timestamps decide conflicts or
+merge results.
+
+## Serialized Snapshot Integrity Receipts
+
+Core serialization validates structure and history coherence but is not an
+authenticity system. A coordinated rewrite of a snapshot root and its history
+can remain structurally valid. A hash embedded in the same serialized payload
+can be rewritten too, so it is not tamper-proof.
+
+When Application needs to detect that threat, the repository or another
+Infrastructure boundary must keep an immutable or signed receipt separate from
+the serialized snapshot. It verifies that receipt against the exact serialized
+string through the Core's caller-supplied verification hook during restoration.
+Receipt creation, signing, storage, key handling, and verification technology
+belong outside the Core. A successful verified import is explicitly
+`receipt-verified`; a restoration without a receipt is explicitly `unverified`.
+The receipt guarantee is limited to detecting payload changes relative to the
+external authenticated receipt. It does not make an unverified payload trusted,
+replace Core structural validation, authorize access, or resolve synchronization
+conflicts.
+
+## Presentation Deletion
+
+The Core creates a validated deletion intent with the exact presentation ID
+and current revision. This JSON-safe value is a repository boundary contract,
+not evidence that data was removed. A future application/repository layer is
+responsible for physical deletion from IndexedDB or Supabase and for reporting
+its outcome.
 
 ## IndexedDB
 
@@ -37,61 +111,73 @@ IndexedDB provides real local persistence.
 
 It is not considered a mock.
 
-Initial use cases include:
+It is the source for editor reads and the first durable boundary for every
+valid Core command. The UI reads the materialized local projection, never a
+Supabase response directly.
 
-- local development
-- demos
-- local-only presentation editing
-- testing the complete editor without cloud infrastructure
+For each valid Core command, Application commits the following records in one
+IndexedDB transaction:
 
-A local presentation should still use:
+1. the materialized presentation projection at the resulting Core revision;
+2. the immutable logical operation and its revision transitions;
+3. a sync-outbox entry keyed by the operation ID; and
+4. local persistence metadata, including the next local sequence and sync
+   status.
 
-- the same Presentation Core
-- the same commands
-- the same schemas
-- the same revisions
-- the same operations
-- the same Renderer
+The transaction either commits all four records or commits none of them. This
+prevents a visible projection without its replayable operation, and prevents an
+operation without an outbox record. When the transaction confirms durability,
+Application records `lastSavedAt` through the Core acknowledgement contract and
+persists the acknowledged projection. Recovery completes this acknowledgement
+from the durable metadata when necessary.
 
-Only the persistence adapter changes.
+### Local Reads and Cache Misses
+
+When a requested presentation is absent from the local projection:
+
+1. If online, Application fetches it from Supabase, validates and materializes
+   the response into IndexedDB with its remote revision and cursor metadata,
+   then serves it from the local projection.
+2. If offline, Application reports the presentation as unavailable.
+
+The repository must never fabricate an empty presentation to satisfy a cache
+miss. A local projection may be stale while synchronization is pending, but it
+is still the editor read model.
 
 Conceptually:
 
-Editor
-→ Application
-→ Core
-→ IndexedDbPresentationRepository
-→ IndexedDB
+Editor → Application → Core → IndexedDbPresentationRepository → IndexedDB
 
 ## Supabase
 
-Supabase provides durable cloud persistence for authenticated product
-users.
+Supabase provides durable cloud synchronization for authenticated product
+users. It is not the normal editor read path.
 
 Conceptually:
 
-Editor
-→ Application
-→ Core
-→ SupabasePresentationRepository
-→ approved RPC boundary
-→ PostgreSQL
+IndexedDB outbox → Application sync service → approved RPC boundary → PostgreSQL
 
 Supabase must not become part of the Presentation Core.
 
 ## Supabase Database Access
 
-Application repositories should use the documented narrow RPC boundary
-rather than spreading direct table queries throughout application code.
+Application synchronization uses narrow RPCs rather than spreading direct table
+queries throughout application code. Every push carries the operation ID,
+device ID, authenticated actor ID when available, expected or base entity
+revisions, client occurrence time, local sequence, and remote cursor context.
+The RPC accepts an idempotent operation and returns canonical accepted changes,
+entity revisions, and cursor data. Replaying the same operation ID must return
+the same accepted outcome rather than apply the mutation again.
 
-Database functions persist already-valid domain operations.
+The pull boundary returns ordered canonical changes and an opaque next cursor.
+Application stores the cursor only after materializing the returned changes in
+the same local transaction. Supabase must persist accepted operations so retries
+and subsequent pulls can be deduplicated and reconciled.
 
-Database functions must not become an alternative implementation of
-Presentation Core business rules.
-
-Domain behavior belongs in the Core.
-
-Database behavior belongs in persistence.
+Database functions enforce persistence, authorization, ownership, idempotency,
+and revision preconditions. They must not become an alternative implementation
+of Presentation Core business rules. Domain behavior belongs in the Core;
+database behavior belongs at the persistence boundary.
 
 ## In-Memory Persistence
 
@@ -176,6 +262,11 @@ Edit image:
 
 Only the changed entity receives a new revision.
 
+`updatedAt` changes with every successful content command and is stored in the
+logical before/after snapshots used by undo and redo. Save and publication
+acknowledgements do not create a content revision or operation; they record
+confirmed external facts for the current revision.
+
 ## Operations
 
 Granular revisions are grouped into logical user operations.
@@ -194,6 +285,11 @@ The operation represents user intent.
 
 This allows Undo to revert the complete action instead of individual
 database writes.
+
+An operation has a stable operation ID and records enough dependency and base
+revision information to determine whether it can be applied to a later state.
+The local sequence orders a device's own operations; it is not a global merge
+clock and does not override revision dependencies.
 
 ## Operation Sources
 
@@ -226,7 +322,8 @@ Therefore the same behavior should work with:
 
 ## Autosave
 
-Autosave persists valid domain operations.
+Autosave persists valid domain operations through the IndexedDB transaction and
+queues them for remote synchronization.
 
 Avoid creating meaningless durable revisions for every transient browser
 event when those events belong to one logical edit.
@@ -264,6 +361,35 @@ Replacing an asset creates a new reference/revision when appropriate.
 Changing visual properties such as position or opacity must not
 duplicate the binary asset.
 
+Asset upload and reference synchronization are one logical durability contract.
+Application must not synchronize an operation that references a remote asset
+until that asset is durably available remotely, or the remote transaction must
+atomically establish the asset record and reference. A failed upload leaves the
+operation pending or failed with no published dangling reference. Remote asset
+cleanup must retain binaries referenced by pending operations.
+
+## Synchronization and Conflicts
+
+Synchronization is operation-based. Application pushes pending outbox entries,
+pulls canonical remote changes, materializes them locally, and advances the
+remote cursor transactionally. A rejected push or a pull that overlaps local
+unacknowledged work starts reconciliation rather than choosing a winner by
+timestamp.
+
+Reconciliation performs a three-way merge from the common base, the local
+operation, and the remote changes. Revisions and operation dependencies decide
+whether changes are concurrent; timestamps never decide conflicts.
+
+- Changes to disjoint entities or disjoint properties merge automatically.
+- Concurrent changes to the same property are explicit conflicts.
+- Delete-versus-edit is an explicit conflict.
+- Incompatible slide or element ordering changes are explicit conflicts.
+
+An explicit conflict blocks only the affected work according to its dependency
+scope and remains visible to the user or calling application service. Resolving
+it creates a new operation against the latest materialized state. Resolution
+never rewrites local or remote operation history.
+
 ## Repository Interchangeability
 
 A key architectural test is that the editor can operate against
@@ -282,12 +408,17 @@ The application chooses the adapter.
 
 The domain does not.
 
-## Future Local-to-Cloud Migration
+## Target Implementation Boundary
 
-A future product capability may allow a local presentation to be moved
-or synchronized to cloud storage after authentication.
+The target architecture deliberately separates responsibilities:
 
-This is not required for the initial MVP.
+- Core validates commands, produces operations, revisions, and undo/redo state.
+- Application supplies time, coordinates IndexedDB transactions, and orchestrates
+  synchronization and conflict resolution.
+- IndexedDB stores the local projection, operations, outbox, and sync metadata.
+- Supabase stores remote operations, canonical revisions and changes, cursors,
+  assets, and server audit data through narrow RPCs.
 
-Do not implement synchronization until its conflict, ownership, asset,
-and revision semantics are explicitly defined.
+Implementing this target requires the repository, outbox, RPC, materialization,
+and conflict-resolution adapters described above. Until then, serialization is
+not a substitute for durable local persistence or synchronization.

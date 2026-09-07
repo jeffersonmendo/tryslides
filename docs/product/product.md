@@ -136,6 +136,20 @@ Shapes may configure:
 
 The canvas must support the fundamental direct manipulation workflow.
 
+### MVP Canvas Contract
+
+Each presentation has one fixed 1920 × 1080 logical canvas (16:9). The
+MVP does not support per-slide formats.
+
+Element positions and sizes use logical canvas units. Renderers may scale
+those units to fit their display surface, but they must not redefine the
+canvas dimensions.
+
+The Core evaluates bounds from unrotated, axis-aligned position and size;
+rotation does not expand that envelope. An element may extend beyond any
+canvas edge by up to half of its own width or height. At least half of
+each dimension must remain inside the canvas.
+
 Users can:
 
 - select
@@ -174,6 +188,9 @@ Initial capabilities:
 
 ### Always
 
+“Always” is the product-facing name for the Core's `continuous` animation
+category.
+
 Initial capabilities:
 
 - Float
@@ -194,6 +211,10 @@ Continuous animations may additionally support:
 Animation availability may depend on element type.
 
 For example, Typewriter is valid for text but not for images.
+
+An element can have at most one configured animation in each category:
+Entrance, Exit, and Always. Configuring a new animation replaces the
+existing animation in that category.
 
 ## Transitions
 
@@ -273,6 +294,12 @@ Initial controls:
 ## Sharing
 
 A presentation can be made available through a public URL.
+
+Public URLs use an opaque six-character Base62 `publicId` and the route
+`/p/{publicId}`. Internal UUID presentation IDs are never used as public URLs.
+New presentations begin as drafts. A presentation becomes published only after
+the publishing boundary confirms success; subsequent editing preserves its
+published availability while the current editable content may advance.
 
 Public presentation rendering must reuse the presentation rendering
 system rather than creating an independent visual implementation.

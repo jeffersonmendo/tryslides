@@ -7,11 +7,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "bun test",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write",
     "format:check": "biome format",
-    "check": "bun run lint && bun run typecheck",
+    "check": "bun run lint && bun run typecheck && bun run test",
     "check:all": "bun run check && bun run build",
     "prepare": "husky"
   },
