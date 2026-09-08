@@ -4,6 +4,7 @@ import type {
   LocalAssetMetadata,
   LocalAssetRepository,
   PersistedPresentation,
+  PresentationCard,
   PresentationPersistenceErrorCode,
   PresentationRepository,
 } from "@/features/presentations/application/presentation-repository";
@@ -11,6 +12,12 @@ import { PresentationPersistenceError } from "@/features/presentations/applicati
 import {
   deserializePresentationState,
   isPresentationOperationCompatibleWithState,
+  isValidPresentationId,
+  isValidPresentationRevision,
+  isValidPublicId,
+  isValidSlideBackground,
+  isValidTimestamp,
+  isValidTitle,
 } from "@/features/presentations/core/presentation-core";
 
 const DATABASE_VERSION = 2;
@@ -269,6 +276,27 @@ export class IndexedDbPresentationRepository
         outboxEntry: records.outboxEntry,
         syncMetadata: records.syncMetadata,
       });
+    } catch (error) {
+      throw translateReadError(error);
+    } finally {
+      database.close();
+    }
+  }
+
+  async list(): Promise<readonly PresentationCard[]> {
+    const database = await this.openDatabase();
+    try {
+      const transaction = database.transaction(PROJECTIONS_STORE, "readonly");
+      const projections = await requestValue(
+        transaction.objectStore(PROJECTIONS_STORE).getAll(),
+      );
+      await waitForTransaction(transaction, "PERSISTENCE_READ_FAILED");
+      if (!Array.isArray(projections))
+        throw new PresentationPersistenceError(
+          "INVALID_PERSISTED_PRESENTATION",
+        );
+      const cards = projections.map(toPresentationCard);
+      return Object.freeze(cards.sort(comparePresentationCards));
     } catch (error) {
       throw translateReadError(error);
     } finally {
@@ -588,6 +616,79 @@ function isPersistedPresentation(
   );
 }
 
+function toPresentationCard(projection: unknown): PresentationCard {
+  if (!isStoredProjectionForCard(projection))
+    throw new PresentationPersistenceError("INVALID_PERSISTED_PRESENTATION");
+  const cover_background = projection.document.slides[0]?.background ?? null;
+  return Object.freeze({
+    id: projection.id,
+    publicId: projection.publicId,
+    title: projection.document.title,
+    status: projection.document.status,
+    createdAt: projection.document.createdAt,
+    updatedAt: projection.document.updatedAt,
+    lastSavedAt: projection.document.lastSavedAt,
+    lastPublishedAt: projection.document.lastPublishedAt,
+    coverBackground:
+      cover_background === null ? null : Object.freeze({ ...cover_background }),
+  });
+}
+
+function isStoredProjectionForCard(
+  value: unknown,
+): value is StoredProjection & {
+  readonly document: {
+    readonly id: string;
+    readonly publicId: string;
+    readonly title: string;
+    readonly status: "draft" | "published";
+    readonly createdAt: string;
+    readonly updatedAt: string;
+    readonly lastSavedAt: string | null;
+    readonly lastPublishedAt: string | null;
+    readonly slides: readonly { readonly background: unknown }[];
+  };
+} {
+  if (!isRecord(value) || !isRecord(value.document)) return false;
+  const document = value.document;
+  return (
+    isValidPresentationId(value.id) &&
+    isValidPublicId(value.publicId) &&
+    isValidPresentationRevision(value.revision) &&
+    document.id === value.id &&
+    document.publicId === value.publicId &&
+    isValidTitle(document.title) &&
+    (document.status === "draft" || document.status === "published") &&
+    isValidTimestamp(document.createdAt) &&
+    isValidTimestamp(document.updatedAt) &&
+    document.updatedAt >= document.createdAt &&
+    isNullableTimestamp(document.lastSavedAt) &&
+    isNullableTimestamp(document.lastPublishedAt) &&
+    (document.status !== "draft" || document.lastPublishedAt === null) &&
+    (document.status !== "published" || document.lastPublishedAt !== null) &&
+    Array.isArray(document.slides) &&
+    document.slides.every(
+      (slide) => isRecord(slide) && isValidSlideBackground(slide.background),
+    )
+  );
+}
+
+function comparePresentationCards(
+  left: PresentationCard,
+  right: PresentationCard,
+): number {
+  const updated_at_comparison = right.updatedAt.localeCompare(left.updatedAt);
+  return updated_at_comparison === 0
+    ? comparePresentationIds(left.id, right.id)
+    : updated_at_comparison;
+}
+
+function comparePresentationIds(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 function hasMatchingPendingAcknowledgement(
   snapshot: unknown,
   sync_metadata: unknown,
@@ -761,6 +862,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+function isNullableTimestamp(value: unknown): value is string | null {
+  return value === null || isValidTimestamp(value);
 }
 
 function getReferencedAssetIds(document: unknown): string[] {

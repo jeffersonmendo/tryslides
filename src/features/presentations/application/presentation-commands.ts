@@ -8,6 +8,7 @@ import type {
 import {
   createPresentation,
   createPresentationDeletionIntent,
+  createSlide,
   redo,
   undo,
 } from "@/features/presentations/core/presentation-core";
@@ -28,6 +29,7 @@ import {
 export interface PresentationIdGenerator {
   createPresentationId(): string;
   createPublicId(): string;
+  createSlideId(): string;
   createLocalOperationId(): string;
 }
 
@@ -77,6 +79,23 @@ export class PresentationCommands {
     } satisfies CreatePresentationInput);
     if (!created.success) return { success: false, code: created.error.code };
     return this.persist(created.state, null, { kind: "initial" }, created_at);
+  }
+
+  async createWithInitialSlide(input: {
+    readonly title: string;
+  }): Promise<PresentationCommandResult> {
+    const created = await this.create(input);
+    if (!created.success) return created;
+    return this.execute(created.state, (state, command_input) =>
+      createSlide(state, {
+        id: this.ids.createSlideId(),
+        ...command_input,
+      }),
+    );
+  }
+
+  createSlideId(): string {
+    return this.ids.createSlideId();
   }
 
   async execute(

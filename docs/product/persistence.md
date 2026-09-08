@@ -188,6 +188,20 @@ The repository must never fabricate an empty presentation to satisfy a cache
 miss. A local projection may be stale while synchronization is pending, but it
 is still the editor read model.
 
+### Local Presentation Cards
+
+The local repository exposes a card-only listing read from presentation
+projections. Each card includes internal and public identity, title, lifecycle
+timestamps, status, and the first slide background as its minimal existing
+visual data. It never loads or returns snapshots, operations, outbox entries,
+integrity receipts, asset metadata, or binary data.
+
+The list validates every persisted projection's card fields before returning it.
+Invalid or corrupt records fail with the stable
+`INVALID_PERSISTED_PRESENTATION` error instead of exposing an untrusted partial
+card. Cards are ordered by `updatedAt` descending, then internal `id` ascending
+to make equal timestamps deterministic.
+
 Conceptually:
 
 Editor → Application → Core → IndexedDbPresentationRepository → IndexedDB

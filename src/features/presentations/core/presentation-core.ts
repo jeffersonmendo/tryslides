@@ -104,3 +104,11 @@ export type {
   VerifyPresentationSnapshotReceipt,
 } from "./types";
 export { PRESENTATION_CANVAS } from "./types";
+export {
+  isValidPresentationId,
+  isValidPresentationRevision,
+  isValidPublicId,
+  isValidSlideBackground,
+  isValidTimestamp,
+  isValidTitle,
+} from "./validation";

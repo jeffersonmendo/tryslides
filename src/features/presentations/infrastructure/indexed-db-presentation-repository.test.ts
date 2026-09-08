@@ -155,6 +155,241 @@ test("persists and loads an initially created presentation", async () => {
   assert.equal(loaded.state.lastSavedAt, "2026-09-07T12:02:00.000Z");
 });
 
+test("lists no cards when the local projection store is empty", async () => {
+  const repository = createRepository();
+
+  assert.deepEqual(await repository.list(), []);
+});
+
+test("lists card-safe presentation data without reading snapshots", async () => {
+  const repository = createRepository();
+  await saveInitialPresentation(repository, {
+    id: PRESENTATION_ID,
+    publicId: PUBLIC_ID,
+    title: "First",
+    createdAt: CREATED_AT,
+  });
+  await saveInitialPresentation(repository, {
+    id: "550e8400-e29b-41d4-a716-446655440001",
+    publicId: "Cd4yZa",
+    title: "Second",
+    createdAt: "2026-09-07T12:02:00.000Z",
+  });
+  await replaceSnapshot(
+    repository.databaseFactory as IDBFactory,
+    repository.databaseName,
+    "{",
+  );
+
+  const cards = await repository.list();
+
+  assert.deepEqual(cards, [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      publicId: "Cd4yZa",
+      title: "Second",
+      status: "draft",
+      createdAt: "2026-09-07T12:02:00.000Z",
+      updatedAt: "2026-09-07T12:02:00.000Z",
+      lastSavedAt: "2026-09-07T12:02:00.000Z",
+      lastPublishedAt: null,
+      coverBackground: null,
+    },
+    {
+      id: PRESENTATION_ID,
+      publicId: PUBLIC_ID,
+      title: "First",
+      status: "draft",
+      createdAt: CREATED_AT,
+      updatedAt: CREATED_AT,
+      lastSavedAt: CREATED_AT,
+      lastPublishedAt: null,
+      coverBackground: null,
+    },
+  ]);
+});
+
+test("lists cards despite unavailable or corrupt unrelated persistence records", async () => {
+  const repository = createRepository();
+  const changed = createStateWithOperation();
+  await savePresentation(repository, {
+    state: changed.state,
+    snapshotOrigin: createOperationSnapshotOrigin("list-unrelated-records"),
+    operation: changed.operation,
+    createIntegrityReceipt: () => ({ source: "receipt" }),
+    syncMetadata: createSyncMetadata(),
+    savedAt: "2026-09-07T12:02:00.000Z",
+  });
+  await corruptUnrelatedListingRecords(
+    repository.databaseFactory as IDBFactory,
+    repository.databaseName,
+    "list-unrelated-records",
+  );
+
+  const cards = await repository.list();
+
+  assert.deepEqual(
+    cards.map((card) => card.id),
+    [PRESENTATION_ID],
+  );
+});
+
+test("includes the first slide background as minimal visual card data", async () => {
+  const repository = createRepository();
+  const changed = createStateWithOperation();
+  await savePresentation(repository, {
+    state: changed.state,
+    snapshotOrigin: createOperationSnapshotOrigin("card-cover"),
+    operation: changed.operation,
+    syncMetadata: createSyncMetadata(),
+    savedAt: "2026-09-07T12:02:00.000Z",
+  });
+
+  const [card] = await repository.list();
+
+  assert.deepEqual(card?.coverBackground, { type: "solid", color: "#FFFFFF" });
+});
+
+test("orders cards by newest update and then internal identity", async () => {
+  const repository = createRepository();
+  await saveInitialPresentation(repository, {
+    id: "550e8400-e29b-41d4-a716-446655440002",
+    publicId: "Ef6wVu",
+    title: "Later",
+    createdAt: "2026-09-07T12:02:00.000Z",
+  });
+  await saveInitialPresentation(repository, {
+    id: "550e8400-e29b-41d4-a716-446655440000",
+    publicId: PUBLIC_ID,
+    title: "First tie",
+    createdAt: CREATED_AT,
+  });
+  await saveInitialPresentation(repository, {
+    id: "550e8400-e29b-41d4-a716-446655440001",
+    publicId: "Cd4yZa",
+    title: "Second tie",
+    createdAt: CREATED_AT,
+  });
+
+  const cards = await repository.list();
+
+  assert.deepEqual(
+    cards.map((card) => card.id),
+    [
+      "550e8400-e29b-41d4-a716-446655440002",
+      "550e8400-e29b-41d4-a716-446655440000",
+      "550e8400-e29b-41d4-a716-446655440001",
+    ],
+  );
+});
+
+test("orders equal timestamps with a locale-independent UUID comparison", async () => {
+  const repository = createRepository();
+  const uppercase_id = "550E8400-E29B-41D4-A716-446655440000";
+  const lowercase_id = "550e8400-e29b-41d4-a716-446655440000";
+  await saveInitialPresentation(repository, {
+    id: lowercase_id,
+    publicId: "Cd4yZa",
+    title: "Lowercase",
+    createdAt: CREATED_AT,
+  });
+  await saveInitialPresentation(repository, {
+    id: uppercase_id,
+    publicId: PUBLIC_ID,
+    title: "Uppercase",
+    createdAt: CREATED_AT,
+  });
+
+  const cards = await repository.list();
+
+  assert.deepEqual(
+    cards.map((card) => card.id),
+    [uppercase_id, lowercase_id],
+  );
+});
+
+test("rejects invalid persisted projections during card listing", async () => {
+  const factory = new IDBFactory();
+  const database_name = `presentation-test-${crypto.randomUUID()}`;
+  const repository = new IndexedDbPresentationRepository({
+    databaseFactory: factory,
+    databaseName: database_name,
+  });
+  await saveInitialPresentation(repository, {
+    id: PRESENTATION_ID,
+    publicId: PUBLIC_ID,
+    title: "Valid",
+    createdAt: CREATED_AT,
+  });
+  await replaceProjection(factory, database_name, {
+    id: "invalid",
+    publicId: "Gh7tSr",
+    revision: 1,
+    document: {},
+  });
+
+  await assert.rejects(() => repository.list(), {
+    code: "INVALID_PERSISTED_PRESENTATION",
+  });
+});
+
+test("rejects card projections with lifecycle states invalid in the Core", async () => {
+  const cases = [
+    { status: "draft", lastPublishedAt: UPDATED_AT },
+    { status: "published", lastPublishedAt: null },
+  ] as const;
+
+  for (const lifecycle of cases) {
+    const factory = new IDBFactory();
+    const database_name = `presentation-test-${crypto.randomUUID()}`;
+    const repository = new IndexedDbPresentationRepository({
+      databaseFactory: factory,
+      databaseName: database_name,
+    });
+    const created = createPresentation({
+      id: PRESENTATION_ID,
+      publicId: PUBLIC_ID,
+      title: "Invalid lifecycle",
+      createdAt: CREATED_AT,
+    });
+    assert.equal(created.success, true);
+    if (!created.success) return;
+    await saveInitialPresentation(repository, {
+      id: PRESENTATION_ID,
+      publicId: PUBLIC_ID,
+      title: "Invalid lifecycle",
+      createdAt: CREATED_AT,
+    });
+    await replaceProjection(factory, database_name, {
+      ...createPresentationProjection(created.state),
+      document: { ...created.state, ...lifecycle },
+    });
+
+    await assert.rejects(() => repository.list(), {
+      code: "INVALID_PERSISTED_PRESENTATION",
+    });
+  }
+});
+
+test("translates projection read failures during card listing", async () => {
+  const cause = new Error("Projection read failed");
+  const database_factory = createFailingReadDatabaseFactory(cause);
+  const repository = new IndexedDbPresentationRepository({
+    databaseFactory: database_factory,
+  });
+
+  await assert.rejects(
+    () => repository.list(),
+    (error) => {
+      assert.equal(error instanceof PresentationPersistenceError, true);
+      if (!(error instanceof PresentationPersistenceError)) return false;
+      assert.equal(error.code, "PERSISTENCE_READ_FAILED");
+      assert.equal(error.cause, cause);
+      return true;
+    },
+  );
+});
+
 test("persists and loads the observable document restored by undo", async () => {
   const repository = createRepository();
   const changed = createStateWithOperation();
@@ -464,6 +699,7 @@ test("coordinates deterministic creation, Core commands, undo, and persistence",
     {
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
+      createSlideId: () => "slide_1",
       createLocalOperationId: () => "local-operation-1",
     },
     { now: () => clock_values.shift() ?? "2026-09-07T12:04:00.000Z" },
@@ -488,6 +724,47 @@ test("coordinates deterministic creation, Core commands, undo, and persistence",
   assert.equal(loaded.state.title, "Product overview");
 });
 
+test("creates a persisted presentation with its first empty slide", async () => {
+  const repository = createRepository();
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => PRESENTATION_ID,
+      createPublicId: () => PUBLIC_ID,
+      createSlideId: () => "slide_1",
+      createLocalOperationId: () => "initial-slide-operation",
+    },
+    {
+      now: (() => {
+        const values = [CREATED_AT, UPDATED_AT, UPDATED_AT];
+        return () => values.shift() ?? UPDATED_AT;
+      })(),
+    },
+  );
+
+  const created = await commands.createWithInitialSlide({
+    title: "First presentation",
+  });
+
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  assert.equal(created.state.slides.length, 1);
+  assert.equal(created.state.slides[0]?.id, "slide_1");
+  assert.deepEqual(await repository.list(), [
+    {
+      id: PRESENTATION_ID,
+      publicId: PUBLIC_ID,
+      title: "First presentation",
+      status: "draft",
+      createdAt: CREATED_AT,
+      updatedAt: UPDATED_AT,
+      lastSavedAt: UPDATED_AT,
+      lastPublishedAt: null,
+      coverBackground: { type: "solid", color: "#FFFFFF" },
+    },
+  ]);
+});
+
 test("allocates distinct local operation IDs for repeated injected values", async () => {
   const repository = createRepository();
   const clock_values = [
@@ -502,6 +779,7 @@ test("allocates distinct local operation IDs for repeated injected values", asyn
     {
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
+      createSlideId: () => "slide_1",
       createLocalOperationId: () => "repeated-operation",
     },
     { now: () => clock_values.shift() ?? "2026-09-07T12:05:00.000Z" },
@@ -603,6 +881,7 @@ test("normalizes repeated or regressive local clock values without changing Core
     {
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
+      createSlideId: () => "slide_1",
       createLocalOperationId: () => "operation",
     },
     {
@@ -879,7 +1158,34 @@ test("fails predictably during SSR without evaluating IndexedDB at import time",
   await assert.rejects(() => repository.load("missing"), {
     code: "PERSISTENCE_UNAVAILABLE",
   });
+  await assert.rejects(() => repository.list(), {
+    code: "PERSISTENCE_UNAVAILABLE",
+  });
 });
+
+async function saveInitialPresentation(
+  repository: IndexedDbPresentationRepository,
+  input: {
+    readonly id: string;
+    readonly publicId: string;
+    readonly title: string;
+    readonly createdAt: string;
+  },
+): Promise<void> {
+  const created = createPresentation(input);
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const saved = await savePresentation(repository, {
+    state: created.state,
+    snapshotOrigin: { kind: "initial" },
+    syncMetadata: {
+      ...createSyncMetadata(),
+      presentationId: input.id,
+    },
+    savedAt: input.createdAt,
+  });
+  assert.equal(saved.success, true);
+}
 
 async function replaceSnapshot(
   factory: IDBFactory,
@@ -896,6 +1202,72 @@ async function replaceSnapshot(
   store.put({ ...snapshot, serializedState: serialized_state });
   await waitForTransaction(transaction);
   database.close();
+}
+
+async function replaceProjection(
+  factory: IDBFactory,
+  database_name: string,
+  projection: unknown,
+): Promise<void> {
+  const database = await openDatabase(factory, database_name);
+  const transaction = database.transaction(
+    "presentation-projections",
+    "readwrite",
+  );
+  transaction.objectStore("presentation-projections").put(projection);
+  await waitForTransaction(transaction);
+  database.close();
+}
+
+async function corruptUnrelatedListingRecords(
+  factory: IDBFactory,
+  database_name: string,
+  local_operation_id: string,
+): Promise<void> {
+  const database = await openDatabase(factory, database_name);
+  const transaction = database.transaction(
+    [
+      "presentation-snapshots",
+      "presentation-operations",
+      "presentation-outbox",
+      "presentation-assets",
+    ],
+    "readwrite",
+  );
+  const snapshots = transaction.objectStore("presentation-snapshots");
+  const snapshot = await requestValue(snapshots.get(PRESENTATION_ID));
+  const { integrityReceipt: _integrity_receipt, ...snapshot_without_receipt } =
+    snapshot;
+  snapshots.put(snapshot_without_receipt);
+  transaction.objectStore("presentation-operations").put({
+    localOperationId: local_operation_id,
+    corrupt: true,
+  });
+  transaction.objectStore("presentation-outbox").put({
+    localOperationId: local_operation_id,
+    corrupt: true,
+  });
+  transaction.objectStore("presentation-assets").put({ id: "corrupt-asset" });
+  await waitForTransaction(transaction);
+  database.close();
+}
+
+function createFailingReadDatabaseFactory(cause: Error): IDBFactory {
+  const database = {
+    transaction: () => {
+      throw cause;
+    },
+    close: () => undefined,
+  } as unknown as IDBDatabase;
+  return {
+    open: () => {
+      const request = { result: database } as IDBOpenDBRequest;
+      queueMicrotask(() =>
+        request.onsuccess?.call(request, new Event("success")),
+      );
+      return request;
+    },
+  } as unknown as IDBFactory;
 }
 
 async function getAllKeys(

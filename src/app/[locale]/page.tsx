@@ -1,40 +1,17 @@
-import { getLocale, getTranslations } from "next-intl/server";
-import { buttonVariants } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { notFound } from "next/navigation";
+import { hasLocale } from "next-intl";
+import { setRequestLocale } from "next-intl/server";
+import { PresentationListEntry } from "@/features/presentations/components/presentation-list-entry";
 import { routing } from "@/i18n/routing";
 
-export default async function Home() {
-  const t = await getTranslations("Home");
-  const locale = await getLocale();
-  const next_locale =
-    routing.locales.find((candidate) => candidate !== locale) ??
-    routing.defaultLocale;
+type Props = Readonly<{
+  params: Promise<{ readonly locale: string }>;
+}>;
 
-  return (
-    <main className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-6 bg-background px-6 text-center text-foreground">
-      <div className="flex max-w-xl flex-col items-center gap-3">
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
-          {t("title")}
-        </h1>
-        <p className="text-balance text-muted-foreground">{t("description")}</p>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <a
-          href="https://github.com/jefferson-lopez/starnext"
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants()}
-        >
-          {t("view_on_github")}
-        </a>
-        <Link
-          href="/"
-          locale={next_locale}
-          className={buttonVariants({ variant: "secondary" })}
-        >
-          {t("switch_locale")}
-        </Link>
-      </div>
-    </main>
-  );
+export default async function Home({ params }: Props) {
+  const { locale } = await params;
+  if (!hasLocale(routing.locales, locale)) notFound();
+  setRequestLocale(locale);
+
+  return <PresentationListEntry />;
 }

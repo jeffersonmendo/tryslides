@@ -1,6 +1,8 @@
 import type {
   PresentationDocumentState,
   PresentationOperation,
+  PresentationStatus,
+  SlideBackground,
 } from "@/features/presentations/core/presentation-core";
 
 export type PresentationSyncStatus = "idle" | "pending" | "syncing" | "blocked";
@@ -16,6 +18,22 @@ export type PresentationProjection = {
   readonly publicId: string;
   readonly revision: number;
   readonly document: PresentationDocumentState;
+};
+
+/**
+ * The serializable local read model for a presentation card. It deliberately
+ * excludes Core snapshots, operations, receipts, and binary asset data.
+ */
+export type PresentationCard = {
+  readonly id: string;
+  readonly publicId: string;
+  readonly title: string;
+  readonly status: PresentationStatus;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly lastSavedAt: string | null;
+  readonly lastPublishedAt: string | null;
+  readonly coverBackground: SlideBackground | null;
 };
 
 /**
@@ -119,6 +137,7 @@ export interface PresentationRepository {
   save(presentation: PersistedPresentation): Promise<void>;
   acknowledgeLocalSave(input: AcknowledgePresentationSaveInput): Promise<void>;
   load(presentation_id: string): Promise<PersistedPresentation | null>;
+  list(): Promise<readonly PresentationCard[]>;
   delete(intent: {
     readonly presentationId: string;
     readonly revision: number;
