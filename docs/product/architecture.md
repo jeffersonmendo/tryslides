@@ -11,12 +11,13 @@ presentation domain.
 
 ## Documentation Status
 
-This document specifies the target architecture. It does not claim that every
-adapter, transaction, synchronization flow, or conflict workflow described
-here is running today. The current implementation provides the Presentation
-Core, its in-memory state, and JSON serialization; IndexedDB persistence,
-Supabase adapters, cache-miss hydration, and synchronization remain planned
-application and infrastructure work.
+This document specifies the target architecture. The current implementation
+provides the Presentation Core, deterministic Application command use cases,
+and a browser-only IndexedDB local repository
+that atomically stores a projection, serialized snapshot, optional integrity
+receipt, local operation, outbox entry, and sync metadata. Supabase adapters,
+cache-miss hydration, and synchronization remain planned application and
+infrastructure work.
 
 ## Architectural Model
 
@@ -396,18 +397,49 @@ for each content command. The Core receives those explicit ISO-8601 UTC values;
 it never reads a clock.
 
 After a valid content command, the target Application flow commits the local
-projection, logical operation, sync-outbox entry, and local persistence metadata
-in one IndexedDB transaction. Only after IndexedDB confirms durability does it
-record `lastSavedAt` through `confirmPresentationSaved` and durably update the
-local projection. A recovery path must complete that acknowledgement from the
-durable local metadata if an interruption occurs between confirmation and the
-acknowledgement update.
+projection, serialized Core snapshot and optional external integrity receipt,
+logical operation, sync-outbox entry, and local persistence metadata in one
+IndexedDB transaction. The snapshot explicitly identifies that exact persisted
+operation by its local operation ID; validation checks that the supplied
+operation is real and compatible with the snapshot, without selecting it from
+undo history. Initial creation uses an explicit `initial` snapshot origin and
+has no fabricated Core operation or outbox entry. Only after IndexedDB confirms durability does it record
+`lastSavedAt` through `confirmPresentationSaved` and durably update the local
+projection. The initial transaction records a pending acknowledgement marker;
+restoration completes it only when its revision and local operation key still
+match the persisted records. A stale acknowledgement is a no-op. Because the
+acknowledged snapshot differs from the initial snapshot, Application creates a
+new integrity receipt for its exact serialized string. Recovery has no durable
+receipt factory and therefore clears the old receipt instead of associating it
+with the changed snapshot.
 
 After remote publication confirms the exact revision, Application records
 `lastPublishedAt` through `confirmPresentationPublished` and durably updates the
 local projection. These acknowledgement operations do not perform I/O or create
 content revisions or logical operations. Later edits may make `updatedAt` newer
 than either acknowledgement while retaining the last known external success.
+
+Application command use cases receive an injected ID generator and clock. They
+generate presentation IDs, public IDs, local operation IDs, and canonical times;
+then invoke Core commands and persist the resulting snapshot origin, operation,
+receipt, and acknowledgement flow. This keeps the boundary deterministic in
+tests without giving UI or IndexedDB authority over Core rules.
+
+Within one `PresentationCommands` instance, a repeated injected local-operation
+value is deterministically disambiguated with a numeric suffix. The IndexedDB
+repository also rejects any existing local-operation key before writing either
+immutable operation or outbox record; it never overwrites those records. The
+local save acknowledgement time is normalized to the latest of the supplied
+local clock value, Core `updatedAt`, and existing `lastSavedAt`. This protects
+durability confirmation and interrupted-save recovery from a repeated or
+regressing injected clock without changing the Core operation time.
+
+When a Core command introduces or references a local binary, Application uses
+the local asset transaction capability to commit the Blob, asset metadata,
+projection, snapshot, operation, outbox entry, and sync metadata together. A
+failed IndexedDB transaction leaves neither the asset nor the presentation
+change durable. This is local-only durability and does not implement remote
+asset upload or synchronization.
 
 Application also owns synchronization orchestration and conflict presentation.
 It may merge persisted operations and revisions, but it must not bypass Core
@@ -466,8 +498,11 @@ validated, immutable, JSON-safe intent containing the presentation ID and
 its current revision. It does not remove Core state, record a Core operation,
 or report a durable deletion.
 
-A future application/repository layer must use that intent to perform the
-physical IndexedDB or Supabase removal and handle persistence outcomes.
+Application uses that intent to perform local physical deletion. The IndexedDB
+adapter removes the projection, snapshot/receipt, operations, outbox, and
+metadata in one transaction. It removes an asset binary only when no remaining
+presentation projection references its `assetId`; an absent presentation is an
+idempotent outcome. Remote deletion remains unimplemented.
 
 ## Repository Port
 
@@ -487,6 +522,16 @@ The Application reads and writes the local IndexedDB repository. The Supabase
 adapter is a synchronization boundary rather than an alternate authoritative
 editor read path. In-memory persistence remains appropriate for deterministic
 tests.
+
+### Local Operation Identity Limit
+
+The local repository accepts a caller-provided `localOperationId`. Its uniqueness
+is scoped only to one IndexedDB database and it keys the local operation and
+outbox records atomically. It is deliberately not derived from the Core
+operation sequence and is not a multi-device identity, remote idempotency key,
+or synchronization protocol. A future synchronization boundary must define the
+device and cross-device operation identity contract before sending outbox
+entries remotely.
 
 The Presentation Core remains unchanged.
 
@@ -545,10 +590,14 @@ changes follow the same validation and domain rules.
 14. Assets remain separate from presentation JSON.
 15. AI and MCP must use the same Core operations as human interfaces.
 16. Local projection, operation, outbox entry, and local persistence metadata
-    are committed atomically after each valid Core command.
+    are committed atomically after each valid Core command; initial creation
+    persists an explicit operation-less initial snapshot.
 17. UI presentation reads are served from the local projection, not directly
     from Supabase.
 18. Conflict detection and merge decisions use revisions and operation
     dependencies, never timestamps.
 19. Snapshot authenticity for coordinated-payload tampering requires an external
-    integrity receipt; payload-internal metadata is not an authenticity boundary.
+     integrity receipt; payload-internal metadata is not an authenticity boundary.
+20. Local asset binaries remain in IndexedDB asset records, never in a Core
+    snapshot. Asset metadata records content type, byte size, timestamps, and
+    presentation references.

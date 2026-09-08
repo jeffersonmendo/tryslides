@@ -30,6 +30,7 @@ export {
 } from "./commands";
 export {
   deserializePresentationState,
+  isPresentationOperationCompatibleWithState,
   serializePresentationState,
 } from "./serialization";
 export type {
@@ -72,6 +73,7 @@ export type {
   PresentationCoreError,
   PresentationCoreErrorCode,
   PresentationDeletionIntent,
+  PresentationDocumentState,
   PresentationElement,
   PresentationLifecycle,
   PresentationOperation,

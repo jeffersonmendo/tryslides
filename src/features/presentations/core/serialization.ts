@@ -98,6 +98,48 @@ export function deserializePresentationState<Receipt>(
   }
 }
 
+/**
+ * Checks an explicitly associated persistence operation against a valid Core
+ * snapshot. It never chooses that operation from the snapshot history.
+ */
+export function isPresentationOperationCompatibleWithState(
+  state: PresentationState,
+  operation: unknown,
+): boolean {
+  if (operation === null)
+    return (
+      state.revision === 1 &&
+      state.operationSequence === 0 &&
+      state.undoStack.length === 0 &&
+      state.redoStack.length === 0
+    );
+  if (
+    !isValidOperation(operation) ||
+    operation.sequence !== state.operationSequence
+  )
+    return false;
+  if (operation.type === "undo")
+    return state.redoStack.some(
+      (entry) =>
+        hasSameDocumentContent(state, entry.before) &&
+        hasSameOperationChanges(operation, {
+          ...entry.operation,
+          changes: entry.operation.changes.map(reverseRevisionTransition),
+        }),
+    );
+  if (operation.type === "redo")
+    return state.undoStack.some(
+      (entry) =>
+        hasSameDocumentContent(state, entry.after) &&
+        hasSameOperationChanges(operation, entry.operation),
+    );
+  return state.undoStack.some(
+    (entry) =>
+      hasSameDocumentContent(state, entry.after) &&
+      JSON.stringify(operation) === JSON.stringify(entry.operation),
+  );
+}
+
 function isValidPresentationState(value: unknown): value is PresentationState {
   if (
     !isRecordWithKeys(value, [
@@ -174,6 +216,28 @@ function hasSameDocumentContent(
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt
   );
+}
+
+function hasSameOperationChanges(
+  operation: PresentationOperation,
+  source_operation: PresentationOperation,
+): boolean {
+  return (
+    operation.source === source_operation.source &&
+    JSON.stringify(operation.changes) ===
+      JSON.stringify(source_operation.changes)
+  );
+}
+
+function reverseRevisionTransition(
+  change: EntityRevisionTransition,
+): EntityRevisionTransition {
+  return {
+    entityType: change.entityType,
+    entityId: change.entityId,
+    fromRevision: change.toRevision,
+    toRevision: change.fromRevision,
+  };
 }
 
 function isValidHistoryEntry(value: unknown): boolean {

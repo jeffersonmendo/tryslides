@@ -113,6 +113,10 @@ Users can:
 - configure object fit
 - replace the underlying image asset
 
+Image binaries are retained locally outside presentation documents. Deleting a
+presentation removes locally orphaned image binaries but preserves binaries
+still used by another local presentation.
+
 ### Shapes
 
 Initial shapes:

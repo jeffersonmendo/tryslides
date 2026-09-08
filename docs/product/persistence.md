@@ -17,10 +17,11 @@ Persistence changes storage behavior, not presentation behavior.
 ## Documentation Status
 
 This document defines the target offline-first persistence and synchronization
-architecture. It is not a claim that IndexedDB repositories, Supabase RPCs,
-outbox processing, cache-miss hydration, or conflict resolution are already
-implemented. The current implementation provides the Presentation Core with
-in-memory state and JSON serialization only.
+architecture. The current implementation includes a browser-only IndexedDB
+repository that atomically writes the local projection, Core snapshot and its
+optional external receipt, one local operation, one outbox entry, and sync
+metadata. Supabase RPCs, outbox processing, cache-miss hydration, and conflict
+resolution are not implemented.
 
 ## Repository Boundary
 
@@ -103,7 +104,10 @@ The Core creates a validated deletion intent with the exact presentation ID
 and current revision. This JSON-safe value is a repository boundary contract,
 not evidence that data was removed. A future application/repository layer is
 responsible for physical deletion from IndexedDB or Supabase and for reporting
-its outcome.
+its outcome. The current local Application flow uses the intent to atomically
+remove the projection, snapshot/receipt, operations, outbox, and metadata.
+Deletion is idempotent when the local presentation is already absent and keeps
+an asset when any remaining local projection references it.
 
 ## IndexedDB
 
@@ -119,17 +123,57 @@ For each valid Core command, Application commits the following records in one
 IndexedDB transaction:
 
 1. the materialized presentation projection at the resulting Core revision;
-2. the immutable logical operation and its revision transitions;
-3. a sync-outbox entry keyed by the operation ID; and
-4. local persistence metadata, including the next local sequence and sync
+2. the serialized Core snapshot and optional opaque integrity receipt;
+3. the immutable logical operation and its revision transitions;
+4. a sync-outbox entry keyed by the local operation key; and
+5. local persistence metadata, including the next local sequence and sync
    status.
 
-The transaction either commits all four records or commits none of them. This
+Each command-produced snapshot explicitly stores the local operation ID of the
+operation committed beside it. The repository validates that this associated
+operation is a real Core operation compatible with the serialized snapshot; it
+does not infer the association from the current undo stack. A newly created
+presentation instead stores an explicit `initial` snapshot origin, with no
+invented Core operation or outbox entry.
+
+The transaction either commits all five records or commits none of them. This
 prevents a visible projection without its replayable operation, and prevents an
 operation without an outbox record. When the transaction confirms durability,
 Application records `lastSavedAt` through the Core acknowledgement contract and
-persists the acknowledged projection. Recovery completes this acknowledgement
-from the durable metadata when necessary.
+persists the acknowledged projection. The initial transaction records a pending
+save-acknowledgement marker in local metadata. On the next local restoration,
+Application completes that acknowledgement only when the marker still matches
+the persisted revision and local operation key. A later save makes an older
+marker inapplicable, so a delayed acknowledgement is a no-op rather than a
+write over newer state.
+
+The repository stores a caller-provided `localOperationId` with the operation
+and outbox entry. It is unique only inside that local database; it is not
+derived from a Core sequence and carries no multi-device or remote idempotency
+semantics. Remote synchronization must define that identity separately rather
+than treating this local key as a protocol contract.
+
+`PresentationCommands` deterministically disambiguates repeated injected local
+operation values within one instance. The IndexedDB repository independently
+rejects a colliding local operation/outbox key before writing, so immutable
+records are never replaced. For local save acknowledgement, Application uses
+the latest of the supplied local time, Core `updatedAt`, and existing
+`lastSavedAt`; this guarantees `savedAt >= updatedAt` even if an injected clock
+repeats or moves backwards, without altering the Core operation timestamp.
+
+An integrity receipt is created from the exact serialized string it protects.
+The acknowledgement writes a different serialized string because it adds
+`lastSavedAt`, so it receives a newly created receipt for that final string. If
+an interruption requires recovery, no receipt factory is durable; recovery
+persists the acknowledged snapshot without a receipt rather than retaining the
+receipt for the earlier string. This is a local integrity limitation, not a
+remote synchronization guarantee.
+
+The repository validates persisted records structurally before returning them.
+Its integrity receipt remains opaque and untrusted until Application supplies a
+verifier to Core during restoration. The existing `fake-indexeddb` development
+dependency provides deterministic browser-transaction integration tests without
+introducing a browser runner.
 
 ### Local Reads and Cache Misses
 
@@ -354,7 +398,23 @@ Cloud:
 
 Local:
 
-    asset_783 → local asset storage / IndexedDB
+     asset_783 → local asset storage / IndexedDB
+
+The current browser asset adapter stores the `Blob` separately with validated
+metadata: stable asset ID, content type, exact byte size, creation/update times,
+and the presentation IDs that declare intended use. Metadata is not a substitute
+for projection reference checks during cleanup; physical deletion checks all
+remaining projections before removing a binary. The adapter is browser-only and
+reports local persistence unavailability during SSR rather than accessing
+IndexedDB at module evaluation time.
+
+The local asset transaction use case commits a Blob and its metadata alongside
+the Core snapshot, projection, operation, outbox entry, and sync metadata that
+references its asset ID in one IndexedDB transaction. It requires the resulting
+projection to reference the asset and the metadata to include that presentation.
+A failed transaction rolls back both sides. Deletion derives retained assets
+from all remaining projections, not `metadata.presentationIds`, so stale asset
+metadata cannot retain an orphan or remove a shared binary.
 
 Replacing an asset creates a new reference/revision when appropriate.
 
