@@ -30,6 +30,7 @@ export {
   sendBackward,
   undo,
 } from "./commands";
+export { isHistoryEntryApplicableToSlide } from "./history";
 export {
   deserializePresentationState,
   isPresentationOperationCompatibleWithState,

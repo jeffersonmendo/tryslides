@@ -29,6 +29,7 @@ import {
   createPresentation,
   createPresentationDeletionIntent,
   deserializePresentationState,
+  isHistoryEntryApplicableToSlide,
   PRESENTATION_CANVAS,
   redo,
   serializePresentationState,
@@ -122,6 +123,127 @@ function createStateWithSlide() {
   assert.equal(result.success, true);
   return result.state;
 }
+
+test("limits a redo entry to the slide it exclusively affects", () => {
+  const first_slide = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first_slide.success, true);
+  if (!first_slide.success) return;
+  const second_slide = create_slide(first_slide.state, { id: "slide_2" });
+  assert.equal(second_slide.success, true);
+  if (!second_slide.success) return;
+  const edited_second_slide = edit_slide(second_slide.state, {
+    slideId: "slide_2",
+    patch: { background: { type: "solid", color: "#000000" } },
+  });
+  assert.equal(edited_second_slide.success, true);
+  if (!edited_second_slide.success) return;
+  const undone = undo(edited_second_slide.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+
+  const entry = undone.state.redoStack.at(-1);
+  assert.notEqual(entry, undefined);
+  if (entry === undefined) return;
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_1"), false);
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_2"), true);
+  assert.equal(
+    isHistoryEntryApplicableToSlide(
+      { ...entry, operation: { ...entry.operation, type: "unknown" as never } },
+      "slide_2",
+    ),
+    false,
+  );
+
+  const redone = redo(undone.state);
+  assert.equal(redone.success, true);
+  if (!redone.success) return;
+  assert.deepEqual(redone.state.slides[1]?.background, {
+    type: "solid",
+    color: "#000000",
+  });
+});
+
+test("does not classify presentation-only or multi-slide history as slide-scoped", () => {
+  const first_slide = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first_slide.success, true);
+  if (!first_slide.success) return;
+  const second_slide = create_slide(first_slide.state, { id: "slide_2" });
+  assert.equal(second_slide.success, true);
+  if (!second_slide.success) return;
+  const renamed = rename_presentation(second_slide.state, {
+    title: "Renamed overview",
+  });
+  assert.equal(renamed.success, true);
+  if (!renamed.success) return;
+  const presentation_entry = renamed.state.undoStack.at(-1);
+  assert.notEqual(presentation_entry, undefined);
+  if (presentation_entry === undefined) return;
+  assert.equal(
+    isHistoryEntryApplicableToSlide(presentation_entry, "slide_1"),
+    false,
+  );
+
+  const reordered = reorder_slide(second_slide.state, {
+    slideId: "slide_1",
+    afterSlideId: "slide_2",
+  });
+  assert.equal(reordered.success, true);
+  if (!reordered.success) return;
+  const multi_slide_entry = reordered.state.undoStack.at(-1);
+  assert.notEqual(multi_slide_entry, undefined);
+  if (multi_slide_entry === undefined) return;
+  assert.equal(
+    isHistoryEntryApplicableToSlide(multi_slide_entry, "slide_1"),
+    false,
+  );
+  assert.equal(
+    isHistoryEntryApplicableToSlide(multi_slide_entry, "slide_2"),
+    false,
+  );
+});
+
+test("does not classify history with a missing operation as slide-scoped", () => {
+  const edited = edit_slide(createStateWithSlide(), {
+    slideId: "slide_1",
+    patch: { background: { type: "solid", color: "#000000" } },
+  });
+  assert.equal(edited.success, true);
+  if (!edited.success) return;
+  const entry = edited.state.undoStack.at(-1);
+  assert.notEqual(entry, undefined);
+  if (entry === undefined) return;
+
+  assert.equal(
+    isHistoryEntryApplicableToSlide(
+      { ...entry, operation: null as never },
+      "slide_1",
+    ),
+    false,
+  );
+});
+
+test("does not classify history with missing operation changes as slide-scoped", () => {
+  const edited = edit_slide(createStateWithSlide(), {
+    slideId: "slide_1",
+    patch: { background: { type: "solid", color: "#000000" } },
+  });
+  assert.equal(edited.success, true);
+  if (!edited.success) return;
+  const entry = edited.state.undoStack.at(-1);
+  assert.notEqual(entry, undefined);
+  if (entry === undefined) return;
+
+  assert.equal(
+    isHistoryEntryApplicableToSlide(
+      {
+        ...entry,
+        operation: { ...entry.operation, changes: undefined as never },
+      },
+      "slide_1",
+    ),
+    false,
+  );
+});
 
 test("creates image metadata as one atomic operation with one undo unit", () => {
   const state = createStateWithSlide();

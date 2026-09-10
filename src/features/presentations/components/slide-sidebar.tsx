@@ -1,9 +1,13 @@
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import type { EditorSlide } from "./editor-model";
+import { SlideVisualContent } from "./slide-visual-content";
 
 type SlideSidebarProps = {
   readonly activeSlideId: string | null;
+  readonly canvas: { readonly width: number; readonly height: number };
+  readonly imageUnavailableLabel: string;
+  readonly imageUrls: Readonly<Record<string, string>>;
   readonly labels: {
     readonly addSlide: string;
     readonly presentation: string;
@@ -19,13 +23,14 @@ type SlideSidebarProps = {
 
 export function SlideSidebar({
   activeSlideId,
+  canvas,
+  imageUnavailableLabel,
+  imageUrls,
   labels,
   slides,
   onCreateSlide,
   onSelectSlide,
 }: SlideSidebarProps) {
-  const initial_slide = slides[0] ?? null;
-
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden p-3">
       <div className="flex items-center justify-between gap-2">
@@ -46,38 +51,30 @@ export function SlideSidebar({
         {slides.map((slide) => (
           <button
             aria-current={slide.id === activeSlideId ? "true" : undefined}
-            className="flex flex-col gap-1 rounded-xl p-2 text-left outline-none ring-ring focus-visible:ring-2 data-[active=true]:bg-sidebar-accent"
+            aria-label={slide.ariaLabel}
+            className="flex flex-col select-none gap-1 rounded-xl p-2 text-left outline-none ring-ring focus-visible:ring-2 data-[active=true]:bg-sidebar-accent"
             data-active={slide.id === activeSlideId}
             key={slide.id}
             type="button"
             onClick={() => onSelectSlide(slide.id)}
           >
-            <span
-              aria-hidden
-              className="aspect-video rounded border"
-              style={{ background: slide.backgroundStyle }}
-            />
             <span className="text-xs">
               {labels.slide} {slide.number}
             </span>
+            <div
+              aria-hidden="true"
+              className="aspect-video pointer-events-none overflow-hidden rounded border"
+            >
+              <SlideVisualContent
+                canvas={canvas}
+                imageUnavailableLabel={imageUnavailableLabel}
+                imageUrls={imageUrls}
+                slide={slide}
+              />
+            </div>
           </button>
         ))}
       </nav>
-      {initial_slide === null ? null : (
-        <section className="mt-auto flex flex-col gap-2 border-t pt-4">
-          <h3 className="text-xs font-medium text-muted-foreground">
-            {labels.presentation}
-          </h3>
-          <div className="flex flex-col gap-1 text-xs">
-            <span>
-              {labels.slideBackground}: {initial_slide.backgroundStyle}
-            </span>
-            <span>
-              {labels.slideTransition}: {initial_slide.transitionLabel}
-            </span>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

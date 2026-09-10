@@ -26,7 +26,7 @@ export function SlideVisualContent({
   return (
     <div
       data-slide-visual-content
-      className="relative size-full origin-center [container-type:inline-size]"
+      className="relative size-full origin-center @container"
       style={{ background: slide.backgroundStyle }}
       {...planeProps}
     >
@@ -106,7 +106,7 @@ export function SlideElementContent({
   if (element.type === "text")
     return (
       <span
-        className="block size-full overflow-visible whitespace-pre-wrap p-1"
+        className="block size-full overflow-visible whitespace-pre-wrap"
         style={{
           color: element.style.color,
           fontFamily: "Arial, sans-serif",

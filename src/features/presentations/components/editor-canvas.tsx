@@ -79,9 +79,6 @@ export function EditorCanvas({
           onClick={onDeselectElement}
         >
           <span>{activeSlide.ariaLabel}</span>{" "}
-          <span className="text-foreground/50 group-data-[selected=true]:text-blue-300">
-            Slide
-          </span>
         </button>
       )}
       <SlideRenderer

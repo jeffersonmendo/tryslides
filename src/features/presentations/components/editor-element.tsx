@@ -582,7 +582,7 @@ function CanvasText({
       contentEditable={isEditing}
       role={isEditing ? "textbox" : undefined}
       suppressContentEditableWarning
-      className="block size-full overflow-visible whitespace-pre-wrap p-1 outline-none"
+      className="block size-full overflow-visible whitespace-pre-wrap outline-none"
       style={{
         color: element.style.color,
         fontFamily: "Arial, sans-serif",

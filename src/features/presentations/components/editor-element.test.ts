@@ -18,6 +18,22 @@ test("publishes inline canvas text drafts before committing on blur", () => {
   );
 });
 
+test("uses the full logical bounds for editable canvas text", () => {
+  const source = readFileSync(
+    new URL("./editor-element.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /className="block size-full overflow-visible whitespace-pre-wrap outline-none"/,
+  );
+  assert.doesNotMatch(
+    source,
+    /className="block size-full overflow-visible whitespace-pre-wrap p-1 outline-none"/,
+  );
+});
+
 test("applies element opacity only to visual content", () => {
   const source = readFileSync(
     new URL("./editor-element.tsx", import.meta.url),

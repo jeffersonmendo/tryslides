@@ -12,3 +12,14 @@ test("keeps reusable slide visuals independent from editor interactions", () => 
   assert.match(source, /export function SlideVisualElement/);
   assert.doesNotMatch(source, /@dnd-kit|onSelect|onMove|onResize|onRotate/);
 });
+
+test("uses the full logical bounds for static text", () => {
+  assert.match(
+    source,
+    /className="block size-full overflow-visible whitespace-pre-wrap"/,
+  );
+  assert.doesNotMatch(
+    source,
+    /className="block size-full overflow-visible whitespace-pre-wrap p-1"/,
+  );
+});

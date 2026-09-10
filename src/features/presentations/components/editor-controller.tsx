@@ -27,6 +27,7 @@ import type {
   TextStylePatch,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
+import { isHistoryEntryApplicableToSlide } from "@/features/presentations/core/presentation-core";
 import type { EditorIntentDraft } from "./editor-drafts";
 import type { DragCommitResult } from "./editor-drag";
 import {
@@ -86,21 +87,19 @@ export function EditorController({
   const image_import_pending_ref = useRef(false);
   const image_url_entries_ref = useRef(new Map<string, ImageUrlEntry>());
   const image_load_generation_ref = useRef(0);
-  const active_image_asset_references = useMemo(
+  const image_asset_references = useMemo(
     () =>
       effective_state === null
         ? []
-        : getImageAssetReferences(
-            getActiveSlide(effective_state.slides, active_slide_id),
-          ),
-    [active_slide_id, effective_state],
+        : getImageAssetReferences(effective_state.slides),
+    [effective_state],
   );
 
   useEffect(() => {
     const generation = ++image_load_generation_ref.current;
     const reconciliation = reconcileImageUrlEntries(
       image_url_entries_ref.current,
-      active_image_asset_references,
+      image_asset_references,
     );
     reconciliation.removed.forEach((entry) => {
       URL.revokeObjectURL(entry.url);
@@ -135,7 +134,7 @@ export function EditorController({
         image_url_entries_ref.current.set(entry.id, entry);
       set_image_urls(toImageUrlRecord(image_url_entries_ref.current));
     });
-  }, [active_image_asset_references, capability]);
+  }, [image_asset_references, capability]);
 
   useEffect(
     () => () => {
@@ -180,6 +179,23 @@ export function EditorController({
       );
     on_success?.(next_state);
     return dispatched.persisted.then((persisted) => ({ persisted }));
+  }
+
+  function runHistoryCommand(
+    command: EditorCapability["undo"] | EditorCapability["redo"],
+    stack: "undoStack" | "redoStack",
+  ): Promise<EditorCommandRunResult> {
+    scheduler_ref.current?.flushAll();
+    const session = session_ref.current;
+    const active_slide_id = store.getState().activeSlideId;
+    const entry = session?.getSnapshot().state[stack].at(-1);
+    if (
+      active_slide_id === null ||
+      entry === undefined ||
+      !isHistoryEntryApplicableToSlide(entry, active_slide_id)
+    )
+      return Promise.resolve({ persisted: false });
+    return runCommand(command);
   }
 
   function dispatchEditorIntent(draft: EditorIntentDraft): boolean {
@@ -415,6 +431,16 @@ export function EditorController({
         ),
       )
       .find((slide) => slide.id === active_slide_id) ?? null;
+  const undo_entry = status.state.undoStack.at(-1);
+  const redo_entry = status.state.redoStack.at(-1);
+  const can_undo =
+    active_slide_id !== null &&
+    undo_entry !== undefined &&
+    isHistoryEntryApplicableToSlide(undo_entry, active_slide_id);
+  const can_redo =
+    active_slide_id !== null &&
+    redo_entry !== undefined &&
+    isHistoryEntryApplicableToSlide(redo_entry, active_slide_id);
 
   return (
     <EditorShell
@@ -424,8 +450,8 @@ export function EditorController({
       acceptedActiveSlide={accepted_active_slide}
       activeSlideId={active_slide_id}
       canvas={status.state.canvas}
-      canRedo={status.state.redoStack.length > 0}
-      canUndo={status.state.undoStack.length > 0}
+      canRedo={can_redo}
+      canUndo={can_undo}
       isPending={save_status === "pending"}
       imageError={image_error}
       persistenceError={save_status === "failed" ? t("persistenceError") : null}
@@ -563,16 +589,14 @@ export function EditorController({
         void importImages(files, active_slide_id);
       }}
       onRedo={() => {
-        scheduler_ref.current?.flushAll();
-        return runCommand(capability.redo);
+        return runHistoryCommand(capability.redo, "redoStack");
       }}
       onSelectSlide={(slide_id) => {
         store.getState().setActiveSlideId(slide_id);
         store.getState().setSelection({ kind: "none" });
       }}
       onUndo={() => {
-        scheduler_ref.current?.flushAll();
-        return runCommand(capability.undo);
+        return runHistoryCommand(capability.undo, "undoStack");
       }}
       onSelectElement={(element_id, additive = false) => {
         const element = getActiveSlide(
@@ -905,17 +929,18 @@ function getActiveSlide(
 }
 
 function getImageAssetReferences(
-  slide: Slide | null,
+  slides: readonly Slide[],
 ): readonly ImageAssetReference[] {
-  if (slide === null) return [];
   const references = new Map<string, ImageAssetReference>();
-  for (const element of slide.elements) {
-    if (element.type !== "image") continue;
-    references.set(element.assetId, {
-      id: element.assetId,
-      // Replacing an image changes its Core asset reference.
-      contentIdentity: element.assetId,
-    });
+  for (const slide of slides) {
+    for (const element of slide.elements) {
+      if (element.type !== "image") continue;
+      references.set(element.assetId, {
+        id: element.assetId,
+        // Replacing an image changes its Core asset reference.
+        contentIdentity: element.assetId,
+      });
+    }
   }
   return [...references.values()];
 }

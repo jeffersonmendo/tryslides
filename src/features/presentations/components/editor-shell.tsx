@@ -221,6 +221,9 @@ export function EditorShell({
         >
           <SlideSidebar
             activeSlideId={activeSlideId}
+            canvas={canvas}
+            imageUnavailableLabel={labels.imageUnavailable}
+            imageUrls={imageUrls}
             labels={labels}
             slides={slides}
             onCreateSlide={onCreateSlide}
