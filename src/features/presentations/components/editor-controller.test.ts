@@ -54,12 +54,16 @@ test("flushes explicit input commits without UI effect persistence", () => {
 });
 
 test("uses a lifecycle-safe scheduler draft subscription", () => {
+  const session_source = readFileSync(
+    new URL("./use-editor-session.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(
-    source,
+    session_source,
     /subscribeEditorDrafts\(scheduler, store\.getState\(\)\.setDrafts\)/,
   );
   assert.doesNotMatch(
-    source,
+    session_source,
     /scheduler\.subscribe\(\(drafts\) => store\.getState\(\)\.setDrafts\(drafts\)\)/,
   );
 });

@@ -22,6 +22,7 @@ import {
 } from "./editor-drag";
 import { EditorElementView } from "./editor-element";
 import type { EditorSlide } from "./editor-model";
+import { SlideVisualContent } from "./slide-visual-content";
 
 type SlideRendererProps = {
   readonly canvas: { readonly width: number; readonly height: number };
@@ -234,6 +235,66 @@ export function SlideRenderer({
     return active_slide.elements.find((element) => element.id === id);
   }
 
+  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!shouldDeselectCanvas(event.target, event.currentTarget)) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setMarqueePreview(
+      {
+        start: {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+        },
+        end: {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+        },
+        additive: event.metaKey || event.ctrlKey,
+      },
+      true,
+    );
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const current_marquee = marquee_ref.current;
+    if (current_marquee === null) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setMarqueePreview({
+      ...current_marquee,
+      end: {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      },
+    });
+  }
+
+  function handlePointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    const current_marquee = marquee_ref.current;
+    if (current_marquee === null) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const final_marquee = {
+      ...current_marquee,
+      end: {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      },
+    };
+    const selection = getMarqueeSelection(
+      active_slide.elements,
+      canvas,
+      bounds,
+      final_marquee,
+    );
+    marquee_ref.current = null;
+    if (marquee_frame_ref.current !== null) {
+      cancelAnimationFrame(marquee_frame_ref.current);
+      marquee_frame_ref.current = null;
+    }
+    set_marquee(null);
+    if (selection.length === 0 && !final_marquee.additive) onDeselectElement();
+    else onSelectElements(selection, final_marquee.additive);
+  }
+
   return (
     <DragDropProvider
       onDragEnd={handleDragEnd}
@@ -247,73 +308,19 @@ export function SlideRenderer({
         )
       }
     >
-      <div
-        ref={slide_plane_ref}
-        data-editor-canvas
-        className="relative size-full origin-center [container-type:inline-size]"
-        style={{
-          background: active_slide.backgroundStyle,
+      <SlideVisualContent
+        canvas={canvas}
+        imageUnavailableLabel={imageUnavailableLabel}
+        imageUrls={imageUrls}
+        slide={active_slide}
+        planeProps={{
+          ref: slide_plane_ref,
+          "data-editor-canvas": true,
+          onPointerDown: handlePointerDown,
+          onPointerMove: handlePointerMove,
+          onPointerUp: handlePointerUp,
         }}
-        onPointerDown={(event) => {
-          if (!shouldDeselectCanvas(event.target, event.currentTarget)) return;
-          const bounds = event.currentTarget.getBoundingClientRect();
-          setMarqueePreview(
-            {
-              start: {
-                x: event.clientX - bounds.left,
-                y: event.clientY - bounds.top,
-              },
-              end: {
-                x: event.clientX - bounds.left,
-                y: event.clientY - bounds.top,
-              },
-              additive: event.metaKey || event.ctrlKey,
-            },
-            true,
-          );
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const current_marquee = marquee_ref.current;
-          if (current_marquee === null) return;
-          const bounds = event.currentTarget.getBoundingClientRect();
-          setMarqueePreview({
-            ...current_marquee,
-            end: {
-              x: event.clientX - bounds.left,
-              y: event.clientY - bounds.top,
-            },
-          });
-        }}
-        onPointerUp={(event) => {
-          const current_marquee = marquee_ref.current;
-          if (current_marquee === null) return;
-          const bounds = event.currentTarget.getBoundingClientRect();
-          const final_marquee = {
-            ...current_marquee,
-            end: {
-              x: event.clientX - bounds.left,
-              y: event.clientY - bounds.top,
-            },
-          };
-          const selection = getMarqueeSelection(
-            active_slide.elements,
-            canvas,
-            bounds,
-            final_marquee,
-          );
-          marquee_ref.current = null;
-          if (marquee_frame_ref.current !== null) {
-            cancelAnimationFrame(marquee_frame_ref.current);
-            marquee_frame_ref.current = null;
-          }
-          set_marquee(null);
-          if (selection.length === 0 && !final_marquee.additive)
-            onDeselectElement();
-          else onSelectElements(selection, final_marquee.additive);
-        }}
-      >
-        {active_slide.elements.map((element) => (
+        renderElement={(element) => (
           <EditorElementView
             canvas={canvas}
             element={element}
@@ -340,9 +347,10 @@ export function SlideRenderer({
             onTextContentCommit={onTextContentCommit}
             onSelect={onSelectElement}
           />
-        ))}
+        )}
+      >
         {marquee !== null ? <Marquee selection={marquee} /> : null}
-      </div>
+      </SlideVisualContent>
     </DragDropProvider>
   );
 }

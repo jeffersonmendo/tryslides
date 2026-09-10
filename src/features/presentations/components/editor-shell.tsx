@@ -211,12 +211,13 @@ export function EditorShell({
 }: EditorShellProps) {
   return (
     <>
-      <SidebarProvider className="hidden h-dvh min-h-0 overflow-hidden overscroll-none md:flex">
+      <SidebarProvider className="hidden bg-muted h-dvh min-h-0 overflow-hidden overscroll-none md:flex">
         <Sidebar
-          className="h-svh min-h-0 overflow-hidden overscroll-none"
+          className="h-svh min-h-0  overflow-hidden overscroll-none"
           aria-label={labels.slides}
-          collapsible="none"
+          collapsible="offcanvas"
           side="left"
+          variant="floating"
         >
           <SlideSidebar
             activeSlideId={activeSlideId}
@@ -226,7 +227,7 @@ export function EditorShell({
             onSelectSlide={onSelectSlide}
           />
         </Sidebar>
-        <SidebarInset className="flex min-h-0 min-w-0 flex-col overflow-hidden overscroll-none rounded-none shadow-none">
+        <SidebarInset className="flex min-h-0 min-w-0 flex-col bg bg-transparent mt-3.5 rounded-2xl! shadow-none">
           <EditorHeader
             addImageLabel={labels.addImage}
             addShapeLabel={labels.addShape}
@@ -266,10 +267,11 @@ export function EditorShell({
           />
         </SidebarInset>
         <Sidebar
-          className="h-svh min-h-0 overflow-hidden overscroll-none"
+          className="h-svh min-h-0 overflow-hidden border-none! shadow-none overscroll-none"
           aria-label={labels.properties}
-          collapsible="none"
+          collapsible="offcanvas"
           side="right"
+          variant="floating"
         >
           <PropertiesSidebar
             activeSlide={activeSlide}

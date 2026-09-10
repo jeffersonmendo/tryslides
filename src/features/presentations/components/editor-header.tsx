@@ -63,13 +63,13 @@ export function EditorHeader({
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4">
-      <h1 className="truncate font-semibold">{title}</h1>
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 rounded-2xl dark:bg-sidebar bg-white px-4">
+      <h1 className="truncate text-sm">{title}</h1>
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={onCreateText}
         >
           <IconTypography data-icon="inline-start" />
@@ -78,7 +78,7 @@ export function EditorHeader({
         <Button
           size="sm"
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={() => onCreateShape("rectangle")}
         >
           <IconShape data-icon="inline-start" />
@@ -95,7 +95,7 @@ export function EditorHeader({
         <Button
           size="sm"
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={() => image_input_ref.current?.click()}
         >
           <IconPhoto data-icon="inline-start" />
@@ -105,7 +105,7 @@ export function EditorHeader({
           aria-label={undoLabel}
           disabled={!canUndo}
           size="icon-sm"
-          variant="ghost"
+          variant="secondary"
           onClick={onUndo}
         >
           <IconArrowBackUp data-icon="inline-start" />
@@ -114,33 +114,11 @@ export function EditorHeader({
           aria-label={redoLabel}
           disabled={!canRedo}
           size="icon-sm"
-          variant="ghost"
+          variant="secondary"
           onClick={onRedo}
         >
           <IconArrowForwardUp data-icon="inline-start" />
         </Button>
-        {persistenceError === null ? (
-          <p
-            aria-live="polite"
-            className={
-              imageError === null
-                ? "text-xs text-muted-foreground"
-                : "text-xs text-destructive"
-            }
-          >
-            {imageError ?? save_state}
-          </p>
-        ) : (
-          <Button
-            className="h-auto px-0 text-xs text-destructive"
-            size="sm"
-            type="button"
-            variant="link"
-            onClick={onRetryPersistence}
-          >
-            {saveErrorLabel}: {persistenceError}
-          </Button>
-        )}
       </div>
     </header>
   );

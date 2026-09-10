@@ -20,6 +20,7 @@ import {
   stopEditingPointerDown,
 } from "./editor-drag";
 import type { EditorElement } from "./editor-model";
+import { SlideElementContent } from "./slide-visual-content";
 
 type EditorElementProps = {
   readonly canvas: { readonly width: number; readonly height: number };
@@ -537,45 +538,12 @@ function ElementContent({
       />
     );
   }
-  if (element.type === "image") {
-    return imageUrl === null ? (
-      <span className="flex size-full items-center justify-center bg-muted text-xs text-muted-foreground">
-        {imageUnavailableLabel}
-      </span>
-    ) : (
-      // biome-ignore lint/performance/noImgElement: Local object URLs cannot be optimized by Next.js.
-      <img
-        alt=""
-        className="size-full"
-        src={imageUrl}
-        style={{
-          borderRadius: element.style.borderRadius,
-          objectFit: element.style.objectFit as "cover" | "contain",
-        }}
-      />
-    );
-  }
-  if (element.shapeType === "line") {
-    return (
-      <span
-        className="absolute left-0 right-0 block"
-        style={{
-          borderTop: `${Math.max(1, element.style.borderWidth)}px solid ${element.style.fill}`,
-          top: "50%",
-          transform: "translateY(-50%)",
-        }}
-      />
-    );
-  }
   return (
-    <span
-      className="block size-full"
-      style={{
-        background: element.style.fill,
-        border: `${element.style.borderWidth}px solid ${element.style.border}`,
-        borderRadius:
-          element.shapeType === "circle" ? "9999px" : element.style.radius,
-      }}
+    <SlideElementContent
+      canvas={canvas}
+      element={element}
+      imageUnavailableLabel={imageUnavailableLabel}
+      imageUrl={imageUrl}
     />
   );
 }

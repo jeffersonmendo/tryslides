@@ -9,13 +9,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EditIntentScheduler } from "@/features/presentations/application/edit-intent-scheduler";
 import type {
   EditorCapability,
   ImageImportInput,
 } from "@/features/presentations/application/editor-capability";
-import {
-  type EditorSaveStatus,
+import type {
+  EditorSaveStatus,
   EditorSession,
 } from "@/features/presentations/application/editor-session";
 import type {
@@ -28,7 +27,6 @@ import type {
   TextStylePatch,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
-import { subscribeEditorDrafts } from "./editor-draft-subscription";
 import type { EditorIntentDraft } from "./editor-drafts";
 import type { DragCommitResult } from "./editor-drag";
 import {
@@ -41,13 +39,11 @@ import {
   reconcileImageUrlEntries,
   toImageUrlRecord,
 } from "./editor-image-urls";
-import type {
-  EditorSelection,
-  EditorSlide,
-  EditorTextElement,
-} from "./editor-model";
+import type { EditorSelection } from "./editor-model";
+import { toEditorSlide } from "./editor-projection";
 import { EditorShell } from "./editor-shell";
 import { useEditorStore, useEditorStoreApi } from "./editor-store-provider";
+import { useEditorSession } from "./use-editor-session";
 
 type EditorControllerProps = {
   readonly capability: EditorCapability;
@@ -68,14 +64,16 @@ export function EditorController({
   presentationId,
 }: EditorControllerProps) {
   const t = useTranslations("Editor");
-  const [load_status, set_load_status] = useState<
-    Exclude<EditorStatus, { readonly kind: "ready" }>
-  >({ kind: "loading" });
   const store = useEditorStoreApi();
   const snapshot = useEditorStore((state) => state.snapshot);
   const effective_state = useEditorStore((state) => state.effectiveState);
   const active_slide_id = useEditorStore((state) => state.activeSlideId);
   const selection = useEditorStore((state) => state.selection);
+  const {
+    loadStatus: load_status,
+    sessionRef: session_ref,
+    schedulerRef: scheduler_ref,
+  } = useEditorSession({ capability, presentationId, store });
   const status: EditorStatus =
     snapshot === null || effective_state === null
       ? load_status
@@ -86,11 +84,6 @@ export function EditorController({
   >({});
   const [image_error, set_image_error] = useState<string | null>(null);
   const image_import_pending_ref = useRef(false);
-  const editor_session_ref = useRef<EditorSession | null>(null);
-  const edit_intent_scheduler_ref = useRef<EditIntentScheduler<
-    string,
-    EditorIntentDraft
-  > | null>(null);
   const image_url_entries_ref = useRef(new Map<string, ImageUrlEntry>());
   const image_load_generation_ref = useRef(0);
   const active_image_asset_references = useMemo(
@@ -102,53 +95,6 @@ export function EditorController({
           ),
     [active_slide_id, effective_state],
   );
-
-  if (edit_intent_scheduler_ref.current === null)
-    edit_intent_scheduler_ref.current = new EditIntentScheduler();
-
-  useEffect(() => {
-    const scheduler = edit_intent_scheduler_ref.current;
-    if (scheduler === null) return;
-    return subscribeEditorDrafts(scheduler, store.getState().setDrafts);
-  }, [store]);
-
-  useEffect(() => {
-    let is_active = true;
-    let unsubscribe: () => void = () => undefined;
-
-    async function loadEditor() {
-      try {
-        const result = await capability.loadPresentation(presentationId);
-        if (!is_active) return;
-        if (!result.success) {
-          set_load_status({
-            kind:
-              result.code === "PRESENTATION_NOT_FOUND" ? "not-found" : "error",
-          });
-          return;
-        }
-        const session = new EditorSession(result.state);
-        editor_session_ref.current = session;
-        unsubscribe = session.subscribe((next_snapshot) => {
-          store.getState().setSnapshot(next_snapshot);
-        });
-        store.getState().setActiveSlideId(result.state.slides[0]?.id ?? null);
-        store.getState().setSelection({ kind: "none" });
-        store.getState().setSnapshot(session.getSnapshot());
-      } catch {
-        if (is_active) set_load_status({ kind: "error" });
-      }
-    }
-
-    void loadEditor();
-    return () => {
-      is_active = false;
-      unsubscribe();
-      edit_intent_scheduler_ref.current?.flushAll();
-      editor_session_ref.current = null;
-      store.getState().setSnapshot(null);
-    };
-  }, [capability, presentationId, store.getState]);
 
   useEffect(() => {
     const generation = ++image_load_generation_ref.current;
@@ -208,7 +154,7 @@ export function EditorController({
     on_success?: (state: PresentationState) => void,
     on_accepted?: () => void,
   ): Promise<EditorCommandRunResult> {
-    const session = editor_session_ref.current;
+    const session = session_ref.current;
     if (session === null) return Promise.resolve({ persisted: false });
     let dispatched: ReturnType<EditorSession["dispatch"]>;
     try {
@@ -308,7 +254,7 @@ export function EditorController({
     content: string,
   ): string {
     const key = `text:${slide_id}:${element_id}`;
-    edit_intent_scheduler_ref.current?.schedule({
+    scheduler_ref.current?.schedule({
       key,
       draft: {
         kind: "text",
@@ -334,7 +280,7 @@ export function EditorController({
       return;
     }
     const key = `element:${slide_id}:${normalized_ids.join(",")}`;
-    const existing = edit_intent_scheduler_ref.current?.getDrafts().get(key);
+    const existing = scheduler_ref.current?.getDrafts().get(key);
     const previous_patch =
       existing?.kind === "element" ? existing.patch : undefined;
     const merged_patch = mergeElementPatches(previous_patch, patch);
@@ -344,7 +290,7 @@ export function EditorController({
     )?.elements.find(
       (current_element) => current_element.id === normalized_ids[0],
     );
-    edit_intent_scheduler_ref.current?.schedule({
+    scheduler_ref.current?.schedule({
       key,
       draft: {
         kind: "element",
@@ -361,7 +307,7 @@ export function EditorController({
   }
 
   function flushElementIntents(slide_id: string, element_id: string): void {
-    const scheduler = edit_intent_scheduler_ref.current;
+    const scheduler = scheduler_ref.current;
     if (scheduler === null) return;
     for (const [key, draft] of scheduler.getDrafts()) {
       if (
@@ -410,10 +356,10 @@ export function EditorController({
     patch: Extract<EditorIntentDraft, { readonly kind: "slide" }>["patch"],
   ): string {
     const key = `slide:${slide_id}:${patch.background === undefined ? "transition" : "background"}`;
-    const existing = edit_intent_scheduler_ref.current?.getDrafts().get(key);
+    const existing = scheduler_ref.current?.getDrafts().get(key);
     const previous_patch =
       existing?.kind === "slide" ? existing.patch : undefined;
-    edit_intent_scheduler_ref.current?.schedule({
+    scheduler_ref.current?.schedule({
       key,
       draft: {
         kind: "slide",
@@ -564,7 +510,7 @@ export function EditorController({
         centerVertically: t("centerVertically"),
       }}
       onCreateSlide={() => runCommand(capability.createSlide, true)}
-      onRetryPersistence={() => editor_session_ref.current?.retry()}
+      onRetryPersistence={() => session_ref.current?.retry()}
       onCreateText={() =>
         active_slide_id === null
           ? undefined
@@ -617,7 +563,7 @@ export function EditorController({
         void importImages(files, active_slide_id);
       }}
       onRedo={() => {
-        edit_intent_scheduler_ref.current?.flushAll();
+        scheduler_ref.current?.flushAll();
         return runCommand(capability.redo);
       }}
       onSelectSlide={(slide_id) => {
@@ -625,7 +571,7 @@ export function EditorController({
         store.getState().setSelection({ kind: "none" });
       }}
       onUndo={() => {
-        edit_intent_scheduler_ref.current?.flushAll();
+        scheduler_ref.current?.flushAll();
         return runCommand(capability.undo);
       }}
       onSelectElement={(element_id, additive = false) => {
@@ -686,7 +632,7 @@ export function EditorController({
           selected_text.element.id,
           content,
         );
-        edit_intent_scheduler_ref.current?.flush(key);
+        scheduler_ref.current?.flush(key);
       }}
       onMoveEnd={async (element_id, x, y) => {
         if (active_slide_id === null) return { persisted: false };
@@ -808,7 +754,7 @@ export function EditorController({
       }}
       onDeleteElement={(element_id) => {
         if (active_slide_id === null) return;
-        edit_intent_scheduler_ref.current?.flushAll();
+        scheduler_ref.current?.flushAll();
         void runCommand((state) =>
           capability.deleteElement(state, {
             slideId: active_slide_id,
@@ -827,7 +773,7 @@ export function EditorController({
         const key = scheduleSlidePatch(active_slide_id, {
           background: background satisfies SlideBackground,
         });
-        edit_intent_scheduler_ref.current?.flush(key);
+        scheduler_ref.current?.flush(key);
       }}
       onTransitionChange={(type, duration) => {
         if (active_slide_id === null) return;
@@ -844,9 +790,7 @@ export function EditorController({
       }}
       onTransitionCommit={(type, duration) => {
         if (active_slide_id === null) return;
-        edit_intent_scheduler_ref.current?.flush(
-          `slide:${active_slide_id}:transition`,
-        );
+        scheduler_ref.current?.flush(`slide:${active_slide_id}:transition`);
         void runCommand((state) =>
           capability.configureTransition(state, {
             slideId: active_slide_id,
@@ -934,78 +878,6 @@ function mergeElementPatches(
     ...(previous?.style === undefined && next.style === undefined
       ? {}
       : { style: { ...previous?.style, ...next.style } }),
-  };
-}
-
-function toEditorSlide(
-  slide: Slide,
-  index: number,
-  aria_label: string,
-  transition_labels: Readonly<Record<TransitionType, string>>,
-): EditorSlide {
-  return {
-    id: slide.id,
-    number: index + 1,
-    ariaLabel: aria_label,
-    backgroundStyle:
-      slide.background.type === "solid"
-        ? slide.background.color
-        : slide.background.gradient,
-    background: slide.background,
-    transitionLabel: transition_labels[slide.transition.type],
-    transitionType: slide.transition.type,
-    transitionDuration: slide.transition.duration,
-    elements: slide.elements.map((element) => {
-      if (element.type === "text") return toEditorTextElement(element);
-      if (element.type === "image")
-        return {
-          id: element.id,
-          type: "image" as const,
-          assetId: element.assetId,
-          position: element.position,
-          size: element.size,
-          opacity: element.opacity,
-          rotation: element.rotation,
-          style: element.style,
-          animations: element.animations.map((animation) => ({
-            type: animation.type,
-            duration: animation.duration,
-          })),
-        };
-      return {
-        id: element.id,
-        type: "shape" as const,
-        shapeType: element.shapeType,
-        position: element.position,
-        size: element.size,
-        opacity: element.opacity,
-        rotation: element.rotation,
-        style: element.style,
-        animations: element.animations.map((animation) => ({
-          type: animation.type,
-          duration: animation.duration,
-        })),
-      };
-    }),
-  };
-}
-
-function toEditorTextElement(element: TextElement): EditorTextElement {
-  return {
-    id: element.id,
-    type: "text",
-    content: element.content,
-    position: element.position,
-    size: element.size,
-    opacity: element.opacity,
-    rotation: element.rotation,
-    style: {
-      role: element.style.role,
-      fontSize: element.style.fontSize,
-      fontWeight: element.style.fontWeight,
-      color: element.style.color,
-      alignment: element.style.alignment,
-    },
   };
 }
 

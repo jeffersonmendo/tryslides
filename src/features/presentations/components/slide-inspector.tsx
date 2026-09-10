@@ -14,6 +14,7 @@ import type {
   SlideBackground,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
+import { TRANSITION_CAPABILITIES } from "@/features/presentations/core/presentation-core";
 import type { EditorSlide } from "./editor-model";
 import {
   InspectorDraftInput,
@@ -43,8 +44,6 @@ type SlideInspectorProps = {
     duration?: number,
   ) => void;
 };
-
-const TRANSITION_TYPES = ["none", "fade", "slide", "scale"] as const;
 
 export function SlideInspector({
   slide,
@@ -106,9 +105,9 @@ export function SlideInspector({
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {TRANSITION_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {getTransitionLabel(type, labels)}
+              {TRANSITION_CAPABILITIES.map((capability) => (
+                <SelectItem key={capability.id} value={capability.id}>
+                  {getTransitionLabel(capability.id, labels)}
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -176,7 +175,7 @@ function isNonBlank(value: string): boolean {
 }
 
 function isTransitionType(value: string): value is TransitionType {
-  return TRANSITION_TYPES.includes(value as TransitionType);
+  return TRANSITION_CAPABILITIES.some((capability) => capability.id === value);
 }
 
 function getTransitionLabel(
