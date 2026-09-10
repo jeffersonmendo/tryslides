@@ -63,9 +63,27 @@ export function EditorCanvas({
 }: EditorCanvasProps) {
   return (
     <div
-      className="relative shrink-0 overflow-visible border bg-background shadow-sm"
-      style={{ height: canvas.height / 2, width: canvas.width / 2 }}
+      className="relative group shrink-0 overflow-visible outline bg-background data-[selected=true]:outline-blue-500"
+      data-selected={activeSlide !== null && selectionIds.length === 0}
+      style={{
+        width: "100%",
+        maxWidth: canvas.width / 2,
+        aspectRatio: `${canvas.width} / ${canvas.height}`,
+      }}
     >
+      {activeSlide === null ? null : (
+        <button
+          aria-pressed={selectionIds.length === 0}
+          className="cursor-pointer absolute bottom-full left-0 z-20 mb-2 flex items-center gap-4 rounded-md bg-white p-1 px-2 text-xs! text-foreground group-data-[selected=true]:bg-blue-500 outline group-data-[selected=true]:outline-none group-data-[selected=true]:text-white"
+          type="button"
+          onClick={onDeselectElement}
+        >
+          <span>{activeSlide.ariaLabel}</span>{" "}
+          <span className="text-foreground/50 group-data-[selected=true]:text-blue-300">
+            Slide
+          </span>
+        </button>
+      )}
       <SlideRenderer
         canvas={canvas}
         emptySlideLabel={emptySlideLabel}
@@ -89,22 +107,22 @@ export function EditorCanvas({
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-full left-1/2 z-10 h-[100vmax] w-[100vmax] -translate-x-1/2 bg-muted/80"
+        className="pointer-events-none absolute bottom-full left-1/2 -z-10 h-[100vmax] w-[100vmax] -translate-x-1/2 bg-muted/80"
         data-canvas-outside-overlay="top"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-full left-1/2 z-10 h-[100vmax] w-[100vmax] -translate-x-1/2 bg-muted/80"
+        className="pointer-events-none absolute top-full left-1/2 -z-10 h-[100vmax] w-[100vmax] -translate-x-1/2 bg-muted/80"
         data-canvas-outside-overlay="bottom"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute right-full top-0 z-10 h-full w-[100vmax] bg-muted/80"
+        className="pointer-events-none absolute right-full top-0 -z-10 h-full w-[100vmax] bg-muted/80"
         data-canvas-outside-overlay="left"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-full top-0 z-10 h-full w-[100vmax] bg-muted/80"
+        className="pointer-events-none absolute left-full top-0 -z-10 h-full w-[100vmax] bg-muted/80"
         data-canvas-outside-overlay="right"
       />
     </div>

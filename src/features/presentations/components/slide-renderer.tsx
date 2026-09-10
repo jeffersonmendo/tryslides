@@ -161,6 +161,12 @@ export function SlideRenderer({
       }),
     };
 
+    if (
+      preview.position.x === source.position.x &&
+      preview.position.y === source.position.y
+    )
+      return;
+
     setDragPreview(preview);
     void commitDragPreview(preview, onMoveEnd).then((result) => {
       set_preview_positions((current) =>

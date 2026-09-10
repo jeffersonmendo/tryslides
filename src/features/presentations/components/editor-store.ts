@@ -22,6 +22,27 @@ export type EditorStoreState = {
 
 export type EditorStore = ReturnType<typeof createEditorStore>;
 
+function haveSameSelection(
+  current: EditorSelection,
+  next: EditorSelection,
+): boolean {
+  if (current.kind !== next.kind) return false;
+  if (current.kind === "none") return true;
+  if (current.kind === "multiple") {
+    if (next.kind !== "multiple") return false;
+    if (
+      current.primaryElementId !== next.primaryElementId ||
+      current.elementIds.length !== next.elementIds.length
+    )
+      return false;
+
+    const next_ids = new Set(next.elementIds);
+    return current.elementIds.every((id) => next_ids.has(id));
+  }
+  if (next.kind === "none" || next.kind === "multiple") return false;
+  return current.elementId === next.elementId;
+}
+
 export function createEditorStore() {
   return createStore<EditorStoreState>()((set) => ({
     snapshot: null,
@@ -39,7 +60,10 @@ export function createEditorStore() {
       })),
     setActiveSlideId: (active_slide_id) =>
       set({ activeSlideId: active_slide_id }),
-    setSelection: (selection) => set({ selection }),
+    setSelection: (selection) =>
+      set((state) =>
+        haveSameSelection(state.selection, selection) ? state : { selection },
+      ),
     setDrafts: (drafts) =>
       set((state) =>
         haveSameDraftEntries(state.drafts, drafts)

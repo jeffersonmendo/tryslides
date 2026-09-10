@@ -208,6 +208,68 @@ test("bridges scheduler drafts without recursive or stale store notifications", 
   unsubscribe_store();
 });
 
+test("does not publish equivalent selection writes", () => {
+  const store = createEditorStore();
+  let notifications = 0;
+  const unsubscribe = store.subscribe(() => {
+    notifications += 1;
+  });
+
+  const initial_state = store.getState();
+  store.getState().setSelection({ kind: "none" });
+  assert.equal(store.getState(), initial_state);
+  assert.equal(notifications, 0);
+
+  store.getState().setSelection({ kind: "text", elementId: "text_1" });
+  const text_selected_state = store.getState();
+  assert.equal(notifications, 1);
+  store.getState().setSelection({ kind: "text", elementId: "text_1" });
+  assert.equal(store.getState(), text_selected_state);
+  assert.equal(notifications, 1);
+
+  store.getState().setSelection({
+    kind: "multiple",
+    elementIds: ["text_1", "shape_1"],
+    primaryElementId: "shape_1",
+  });
+  const selected_state = store.getState();
+  assert.equal(notifications, 2);
+
+  store.getState().setSelection({
+    kind: "multiple",
+    elementIds: ["shape_1", "text_1"],
+    primaryElementId: "shape_1",
+  });
+  assert.equal(store.getState(), selected_state);
+  assert.equal(notifications, 2);
+  unsubscribe();
+});
+
+test("publishes real selection changes", () => {
+  const store = createEditorStore();
+  let notifications = 0;
+  const unsubscribe = store.subscribe(() => {
+    notifications += 1;
+  });
+
+  store.getState().setSelection({ kind: "text", elementId: "text_1" });
+  store.getState().setSelection({
+    kind: "multiple",
+    elementIds: ["text_1", "shape_1"],
+    primaryElementId: "shape_1",
+  });
+  store.getState().setSelection({
+    kind: "multiple",
+    elementIds: ["text_1", "shape_1"],
+    primaryElementId: "text_1",
+  });
+  store.getState().setSelection({ kind: "none" });
+
+  assert.equal(notifications, 4);
+  assert.deepEqual(store.getState().selection, { kind: "none" });
+  unsubscribe();
+});
+
 test("coalesces rapid color previews and clears the final draft after Core acceptance", () => {
   const store = createEditorStore();
   let state = createState();

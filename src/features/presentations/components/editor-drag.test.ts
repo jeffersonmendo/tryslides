@@ -51,6 +51,38 @@ test("converts a final drag transform and clamps it before persistence", () => {
   );
 });
 
+test("preserves direct-manipulation coordinates at a narrow 16:9 viewport", () => {
+  assert.deepEqual(
+    getFinalDragPosition({
+      canvas: CANVAS,
+      position: { x: 400, y: 300 },
+      size: SIZE,
+      transform: { x: 80, y: 60 },
+      viewport: { width: 480, height: 270 },
+    }),
+    { x: 720, y: 540 },
+  );
+  assert.deepEqual(
+    getResizeBounds({
+      canvas: CANVAS,
+      handle: "east",
+      pointerDelta: { x: 20, y: 0 },
+      start: { position: { x: 400, y: 300 }, size: SIZE },
+      viewport: { width: 480, height: 270 },
+    }),
+    { position: { x: 400, y: 300 }, size: { width: 480, height: 200 } },
+  );
+  assert.equal(
+    getRotationAngle({
+      canvas: CANVAS,
+      element: { position: { x: 600, y: 300 }, size: SIZE },
+      pointer: { x: 500, y: 150 },
+      viewport: { left: 100, top: 50, width: 480, height: 270 },
+    }),
+    90,
+  );
+});
+
 test("sends a non-zero drag preview to onMoveEnd when Feedback uses none", async () => {
   const event = {
     to: { x: 480, y: 320 },
@@ -84,6 +116,50 @@ test("sends a non-zero drag preview to onMoveEnd when Feedback uses none", async
   );
 
   assert.deepEqual(moves, [{ elementId: "elementOne", x: 720, y: 540 }]);
+});
+
+test("does not invoke the terminal move callback for a zero-displacement drag", async () => {
+  const source_position = { x: 400, y: 300 };
+  const preview = {
+    elementId: "elementOne",
+    position: getTerminalDragPosition({
+      canvas: CANVAS,
+      position: source_position,
+      size: SIZE,
+      initial: { x: 320, y: 200 },
+      current: { x: 320, y: 200 },
+      viewport: { width: 960, height: 540 },
+    }),
+  };
+  const moves: Array<{ elementId: string; x: number; y: number }> = [];
+
+  if (
+    preview.position.x !== source_position.x ||
+    preview.position.y !== source_position.y
+  )
+    await commitDragPreview(preview, async (element_id, x, y) => {
+      moves.push({ elementId: element_id, x, y });
+      return { persisted: true };
+    });
+
+  assert.deepEqual(moves, []);
+
+  const source = readFileSync(
+    new URL("./slide-renderer.tsx", import.meta.url),
+    "utf8",
+  );
+  const drag_end_source = source.slice(
+    source.indexOf("function handleDragEnd"),
+    source.indexOf("function handleDragStart"),
+  );
+  assert.match(
+    drag_end_source,
+    /preview\.position\.x === source\.position\.x[\s\S]*preview\.position\.y === source\.position\.y[\s\S]*return/,
+  );
+  assert.ok(
+    drag_end_source.indexOf("preview.position.x === source.position.x") <
+      drag_end_source.indexOf("setDragPreview(preview)"),
+  );
 });
 
 test("calculates terminal operation coordinates when no drag preview exists", () => {
@@ -369,7 +445,7 @@ test("reveals canvas overflow with non-interactive opaque exterior overlays", ()
   );
 
   assert.doesNotMatch(canvas_source, /overflow-hidden/);
-  assert.match(canvas_source, /relative shrink-0 overflow-visible/);
+  assert.match(canvas_source, /relative group shrink-0 overflow-visible/);
   assert.equal(canvas_source.match(/data-canvas-outside-overlay=/g)?.length, 4);
   assert.equal(
     canvas_source.match(/pointer-events-none[^\n]*bg-muted\/80/g)?.length,

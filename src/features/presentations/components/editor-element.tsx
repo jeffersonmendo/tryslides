@@ -336,33 +336,36 @@ export function EditorElementView({
         width: `${(displayed_size.width / canvas.width) * 100}%`,
       }}
     >
-      <div className="absolute inset-0" style={{ opacity: element.opacity }}>
-        <div
-          className="absolute inset-0"
-          data-rotated-selection-plane
-          style={{
-            transform: `rotate(${displayed_rotation}deg)`,
-            transformOrigin: "center",
+      <div
+        className="absolute inset-0"
+        data-rotated-selection-plane
+        style={{
+          transform: `rotate(${displayed_rotation}deg)`,
+          transformOrigin: "center",
+        }}
+      >
+        <button
+          ref={handleRef}
+          aria-label={`${element.type}. ${moveInstruction}`}
+          aria-pressed={isSelected}
+          className="absolute inset-0 cursor-grab border-0 bg-transparent p-0 text-left focus-visible:outline-none active:cursor-grabbing"
+          type="button"
+          onClick={(event) =>
+            onSelect(element.id, event.metaKey || event.ctrlKey)
+          }
+          onFocus={() => onSelect(element.id)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            onSelect(element.id, event.metaKey || event.ctrlKey);
           }}
+          onPointerDown={(event) =>
+            onSelect(element.id, event.metaKey || event.ctrlKey)
+          }
         >
-          <button
-            ref={handleRef}
-            aria-label={`${element.type}. ${moveInstruction}`}
-            aria-pressed={isSelected}
-            className="absolute inset-0 cursor-grab border-0 bg-transparent p-0 text-left focus-visible:outline-none active:cursor-grabbing"
-            type="button"
-            onClick={(event) =>
-              onSelect(element.id, event.metaKey || event.ctrlKey)
-            }
-            onFocus={() => onSelect(element.id)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              onSelect(element.id, event.metaKey || event.ctrlKey);
-            }}
-            onPointerDown={(event) =>
-              onSelect(element.id, event.metaKey || event.ctrlKey)
-            }
+          <div
+            className="absolute inset-0"
+            style={{ opacity: element.opacity }}
           >
             <ElementContent
               element={element}
@@ -374,134 +377,131 @@ export function EditorElementView({
               onTextContentCommit={onTextContentCommit}
               onEditingChange={set_is_editing_text}
             />
-          </button>
-          {isSelected ? (
-            <div className="pointer-events-none absolute inset-0">
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 border border-primary"
-                style={{ borderWidth: border_width }}
-              />
-              {canResizeElement(element.type)
-                ? RESIZE_HANDLES.filter(
-                    (handle) => handle.direction !== "north",
-                  ).map((handle) => {
-                    const size =
-                      handle.isCenter && rendered_size !== null
-                        ? getCenterResizeHandleSize(
-                            handle.direction,
-                            rendered_size,
-                          )
-                        : handle.isCenter
-                          ? null
-                          : { width: handle_size, height: handle_size };
-                    if (size === null) return null;
+          </div>
+        </button>
+        {isSelected ? (
+          <div className="pointer-events-none absolute inset-0">
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 border border-blue-500"
+              style={{ borderWidth: border_width }}
+            />
+            {canResizeElement(element.type)
+              ? RESIZE_HANDLES.filter(
+                  (handle) => handle.direction !== "north",
+                ).map((handle) => {
+                  const size =
+                    handle.isCenter && rendered_size !== null
+                      ? getCenterResizeHandleSize(
+                          handle.direction,
+                          rendered_size,
+                        )
+                      : handle.isCenter
+                        ? null
+                        : { width: handle_size, height: handle_size };
+                  if (size === null) return null;
 
-                    return (
-                      <button
-                        aria-label={`${resizeElementLabel}: ${resizeHandleLabels[handle.direction]}`}
-                        className={`pointer-events-auto absolute border border-primary bg-background ${handle.isCenter ? "rounded" : "rounded-full"} ${handle.className}`}
-                        key={handle.direction}
-                        style={{
-                          cursor: getResizeCursor(
-                            handle.direction,
-                            displayed_rotation,
-                          ),
-                          borderWidth: border_width,
-                          height: size.height,
-                          width: size.width,
-                        }}
-                        type="button"
-                        onPointerCancel={cancelResize}
-                        onPointerMove={previewResize}
-                        onPointerDown={(event) =>
-                          beginResize(event, handle.direction)
-                        }
-                        onPointerUp={finishResize}
-                      />
-                    );
-                  })
-                : null}
-              <div
-                className="absolute left-1/2 top-0"
-                data-selection-center-axis
-              >
-                {north_handle_size !== null ? (
-                  <button
-                    aria-label={`${resizeElementLabel}: ${resizeHandleLabels.north}`}
-                    className="pointer-events-auto absolute left-0 top-0 rounded border border-primary bg-background -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      borderWidth: border_width,
-                      cursor: getResizeCursor("north", displayed_rotation),
-                      height: north_handle_size.height,
-                      width: north_handle_size.width,
-                    }}
-                    type="button"
-                    onPointerCancel={cancelResize}
-                    onPointerMove={previewResize}
-                    onPointerDown={(event) => beginResize(event, "north")}
-                    onPointerUp={finishResize}
-                  />
-                ) : null}
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-0 bg-primary"
-                  style={{
-                    height: rotation_connector.height,
-                    transform: `translate(-50%, ${rotation_connector.offsetY}px)`,
-                    width: border_width,
-                  }}
-                />
+                  return (
+                    <button
+                      aria-label={`${resizeElementLabel}: ${resizeHandleLabels[handle.direction]}`}
+                      className={`pointer-events-auto absolute border border-blue-500 bg-white ${handle.isCenter ? "rounded" : "rounded-full"} ${handle.className}`}
+                      key={handle.direction}
+                      style={{
+                        cursor: getResizeCursor(
+                          handle.direction,
+                          displayed_rotation,
+                        ),
+                        borderWidth: border_width,
+                        height: size.height,
+                        width: size.width,
+                      }}
+                      type="button"
+                      onPointerCancel={cancelResize}
+                      onPointerMove={previewResize}
+                      onPointerDown={(event) =>
+                        beginResize(event, handle.direction)
+                      }
+                      onPointerUp={finishResize}
+                    />
+                  );
+                })
+              : null}
+            <div className="absolute left-1/2 top-0" data-selection-center-axis>
+              {north_handle_size !== null ? (
                 <button
-                  aria-description={rotationInstruction}
-                  aria-label={rotationElementLabel}
-                  className="pointer-events-auto absolute left-0 top-0 flex items-center justify-center rounded-full border border-primary bg-background text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  aria-label={`${resizeElementLabel}: ${resizeHandleLabels.north}`}
+                  className="pointer-events-auto absolute left-0 top-0 rounded border border-blue-500 bg-white -translate-x-1/2 -translate-y-1/2"
                   style={{
                     borderWidth: border_width,
-                    height: rotation_button_size,
-                    transform: `translate(-50%, calc(-100% - ${rotation_offset}px))`,
-                    width: rotation_button_size,
+                    cursor: getResizeCursor("north", displayed_rotation),
+                    height: north_handle_size.height,
+                    width: north_handle_size.width,
                   }}
                   type="button"
-                  onKeyDown={handleRotationKeyDown}
-                  onKeyUp={finishKeyboardRotation}
-                  onPointerCancel={cancelRotation}
-                  onPointerDown={beginRotation}
-                  onPointerMove={previewRotation}
-                  onPointerUp={finishRotation}
-                >
-                  <span
-                    style={{ transform: `rotate(${-displayed_rotation}deg)` }}
-                  >
-                    <IconRotate2
-                      aria-hidden
-                      style={{
-                        height: 12,
-                        width: 12,
-                      }}
-                    />
-                  </span>
-                </button>
-              </div>
-              {shouldShowRotationValue(preview_rotation, is_rotating) ? (
-                <output
-                  aria-live="polite"
-                  className="absolute left-[calc(50%+0.75rem)] top-0 -translate-y-[calc(100%+1.5rem)] whitespace-nowrap"
-                >
-                  <span
-                    className="block rounded bg-background px-1 text-xs shadow"
-                    style={{
-                      transform: `rotate(${-displayed_rotation}deg)`,
-                      transformOrigin: "top left",
-                    }}
-                  >
-                    {preview_rotation}°
-                  </span>
-                </output>
+                  onPointerCancel={cancelResize}
+                  onPointerMove={previewResize}
+                  onPointerDown={(event) => beginResize(event, "north")}
+                  onPointerUp={finishResize}
+                />
               ) : null}
+              <span
+                aria-hidden="true"
+                className="absolute left-0 top-0 bg-primary"
+                style={{
+                  height: rotation_connector.height,
+                  transform: `translate(-50%, ${rotation_connector.offsetY}px)`,
+                  width: border_width,
+                }}
+              />
+              <button
+                aria-description={rotationInstruction}
+                aria-label={rotationElementLabel}
+                className="pointer-events-auto absolute left-0 top-0 flex items-center justify-center rounded-full border border-blue-500 bg-white text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                style={{
+                  borderWidth: border_width,
+                  height: rotation_button_size,
+                  transform: `translate(-50%, calc(-100% - ${rotation_offset}px))`,
+                  width: rotation_button_size,
+                }}
+                type="button"
+                onKeyDown={handleRotationKeyDown}
+                onKeyUp={finishKeyboardRotation}
+                onPointerCancel={cancelRotation}
+                onPointerDown={beginRotation}
+                onPointerMove={previewRotation}
+                onPointerUp={finishRotation}
+              >
+                <span
+                  style={{ transform: `rotate(${-displayed_rotation}deg)` }}
+                >
+                  <IconRotate2
+                    aria-hidden
+                    style={{
+                      height: 12,
+                      width: 12,
+                    }}
+                  />
+                </span>
+              </button>
             </div>
-          ) : null}
-        </div>
+            {shouldShowRotationValue(preview_rotation, is_rotating) ? (
+              <output
+                aria-live="polite"
+                className="absolute left-[calc(50%+0.75rem)] top-0 -translate-y-[calc(100%+1.5rem)] whitespace-nowrap"
+              >
+                <span
+                  className="block rounded bg-background px-1 text-xs shadow"
+                  style={{
+                    transform: `rotate(${-displayed_rotation}deg)`,
+                    transformOrigin: "top left",
+                  }}
+                >
+                  {preview_rotation}°
+                </span>
+              </output>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
