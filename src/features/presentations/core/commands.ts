@@ -22,6 +22,7 @@ import type {
   ConfirmPresentationPublishedInput,
   ConfirmPresentationSavedInput,
   CreateElementInput,
+  CreateElementsInput,
   CreatePresentationDeletionIntentResult,
   CreatePresentationInput,
   CreatePresentationResult,
@@ -31,6 +32,7 @@ import type {
   DuplicateElementInput,
   DuplicateSlideInput,
   EditElementInput,
+  EditElementsInput,
   EditSlideInput,
   EntityRevisionTransition,
   HistoryCommandInput,
@@ -434,6 +436,51 @@ export function createElement(
     ],
   );
 }
+/** Creates all elements together, or leaves the state entirely unchanged. */
+export function createElements(
+  state: PresentationState,
+  input: CreateElementsInput,
+): CommandResult {
+  const slide_index = findSlideIndex(state, input.slideId);
+  if (slide_index === -1) return failure(state, "SLIDE_NOT_FOUND");
+  if (input.elements.length === 0) return failure(state, "VALIDATION_ERROR");
+  const slide = state.slides[slide_index];
+  const existing_ids = new Set(slide.elements.map((element) => element.id));
+  if (
+    input.elements.some(
+      (element) =>
+        !isValidNewElement(element) ||
+        !isElementWithinCanvas(element.position, element.size, state.canvas) ||
+        existing_ids.has(element.id),
+    ) ||
+    new Set(input.elements.map((element) => element.id)).size !==
+      input.elements.length
+  )
+    return failure(state, "VALIDATION_ERROR");
+  const elements = input.elements.map(addInitialRevision);
+  return succeed(
+    state,
+    "create-elements",
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, slide_index, {
+        ...slide,
+        revision: slide.revision + 1,
+        elements: [...slide.elements, ...elements],
+      }),
+    },
+    [
+      slideRevisionChange(slide),
+      ...elements.map((element) => ({
+        entityType: "element" as const,
+        entityId: element.id,
+        fromRevision: null,
+        toRevision: 1,
+      })),
+    ],
+  );
+}
 export function editElement(
   state: PresentationState,
   input: EditElementInput,
@@ -455,6 +502,71 @@ export function editElement(
           revision: element.revision + 1,
         } as PresentationElement)
       : null,
+  );
+}
+/** Updates every requested element atomically, or leaves the document unchanged. */
+export function editElements(
+  state: PresentationState,
+  input: EditElementsInput,
+): CommandResult {
+  const slide_index = findSlideIndex(state, input.slideId);
+  if (slide_index === -1) return failure(state, "SLIDE_NOT_FOUND");
+  if (
+    input.elementIds.length === 0 ||
+    new Set(input.elementIds).size !== input.elementIds.length
+  )
+    return failure(state, "VALIDATION_ERROR");
+  const slide = state.slides[slide_index];
+  const selected_ids = new Set(input.elementIds);
+  const selected = slide.elements.filter((element) =>
+    selected_ids.has(element.id),
+  );
+  if (selected.length !== input.elementIds.length)
+    return failure(state, "ELEMENT_NOT_FOUND");
+  const updated = new Map<string, PresentationElement>();
+  for (const element of selected) {
+    if (
+      !isValidPatch(element, input.patch) ||
+      !isElementWithinCanvas(
+        input.patch.position ?? element.position,
+        input.patch.size ?? element.size,
+        state.canvas,
+      )
+    )
+      return failure(state, "VALIDATION_ERROR");
+    updated.set(element.id, {
+      ...element,
+      ...input.patch,
+      style:
+        input.patch.style === undefined
+          ? element.style
+          : { ...element.style, ...input.patch.style },
+      revision: element.revision + 1,
+    } as PresentationElement);
+  }
+  return succeed(
+    state,
+    "edit-elements",
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, slide_index, {
+        ...slide,
+        revision: slide.revision + 1,
+        elements: slide.elements.map(
+          (element) => updated.get(element.id) ?? element,
+        ),
+      }),
+    },
+    [
+      slideRevisionChange(slide),
+      ...selected.map((element) => ({
+        entityType: "element" as const,
+        entityId: element.id,
+        fromRevision: element.revision,
+        toRevision: element.revision + 1,
+      })),
+    ],
   );
 }
 export function deleteElement(

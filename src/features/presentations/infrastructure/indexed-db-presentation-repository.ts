@@ -89,12 +89,25 @@ export class IndexedDbPresentationRepository
   ): Promise<void> {
     if (!isLocalAsset(asset))
       throw new PresentationPersistenceError("INVALID_ASSET");
-    await this.writePresentation(presentation, asset);
+    await this.writePresentation(presentation, [asset]);
+  }
+
+  async saveWithAssets(
+    presentation: PersistedPresentation,
+    assets: readonly LocalAsset[],
+  ): Promise<void> {
+    if (assets.length === 0 || assets.some((asset) => !isLocalAsset(asset)))
+      throw new PresentationPersistenceError("INVALID_ASSET");
+    if (
+      new Set(assets.map((asset) => asset.metadata.id)).size !== assets.length
+    )
+      throw new PresentationPersistenceError("INVALID_ASSET");
+    await this.writePresentation(presentation, assets);
   }
 
   private async writePresentation(
     presentation: PersistedPresentation,
-    asset?: LocalAsset,
+    assets: readonly LocalAsset[] = [],
   ): Promise<void> {
     const database = await this.openDatabase();
     try {
@@ -132,7 +145,7 @@ export class IndexedDbPresentationRepository
           transaction.objectStore(OPERATIONS_STORE).add(presentation.operation);
         if (presentation.outboxEntry !== null)
           transaction.objectStore(OUTBOX_STORE).add(presentation.outboxEntry);
-        if (asset !== undefined)
+        for (const asset of assets)
           transaction.objectStore(ASSETS_STORE).put({
             ...asset.metadata,
             presentationIds: [...asset.metadata.presentationIds],

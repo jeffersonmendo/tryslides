@@ -100,6 +100,26 @@ Text can configure:
 - height
 - rotation
 
+### Initial Text Editor Slice
+
+The first implemented text-editor slice is deliberately narrower than the
+complete Text MVP. It creates a selected text element with localized default
+content, logical bounds of `x: 240`, `y: 450`, `width: 1440`, and `height: 180`.
+The right-side inspector persists content plus these basic visual properties:
+
+- role (`H1`, `H2`, `H3`, or `Paragraph`)
+- font size
+- font weight
+- color
+- alignment
+
+Choosing a role applies its initial typography preset: H1 is 64px/700, H2 is
+48px/700, H3 is 32px/700, and Paragraph is 16px/400. Users can then adjust the
+basic properties independently. Users can also edit text directly on the
+canvas: a blur or Ctrl+Enter confirms the edit, while Escape cancels it. Font
+family, gradients, opacity, position, size, rotation, and all image or shape
+behavior remain outside this initial text-editor slice.
+
 ### Images
 
 Users can:

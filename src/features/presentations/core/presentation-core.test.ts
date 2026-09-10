@@ -10,12 +10,14 @@ import {
   configureAnimation as coreConfigureAnimation,
   configureTransition as coreConfigureTransition,
   createElement as coreCreateElement,
+  createElements as coreCreateElements,
   createSlide as coreCreateSlide,
   deleteElement as coreDeleteElement,
   deleteSlide as coreDeleteSlide,
   duplicateElement as coreDuplicateElement,
   duplicateSlide as coreDuplicateSlide,
   editElement as coreEditElement,
+  editElements as coreEditElements,
   editSlide as coreEditSlide,
   moveElement as coreMoveElement,
   renamePresentation as coreRenamePresentation,
@@ -88,7 +90,9 @@ const delete_slide = withUpdatedAt(coreDeleteSlide);
 const duplicate_slide = withUpdatedAt(coreDuplicateSlide);
 const reorder_slide = withUpdatedAt(coreReorderSlide);
 const create_element = withUpdatedAt(coreCreateElement);
+const create_elements = withUpdatedAt(coreCreateElements);
 const edit_element = withUpdatedAt(coreEditElement);
+const edit_elements = withUpdatedAt(coreEditElements);
 const delete_element = withUpdatedAt(coreDeleteElement);
 const duplicate_element = withUpdatedAt(coreDuplicateElement);
 const reorder_element = withUpdatedAt(coreReorderElement);
@@ -118,6 +122,265 @@ function createStateWithSlide() {
   assert.equal(result.success, true);
   return result.state;
 }
+
+test("creates image metadata as one atomic operation with one undo unit", () => {
+  const state = createStateWithSlide();
+  const created = create_elements(state, {
+    slideId: "slide_1",
+    elements: [
+      {
+        id: "image_1",
+        type: "image",
+        assetId: "asset_1",
+        position: { x: 240, y: 135 },
+        size: { width: 1440, height: 810 },
+        rotation: 0,
+        opacity: 1,
+      },
+      {
+        id: "image_2",
+        type: "image",
+        assetId: "asset_2",
+        position: { x: 192, y: 103 },
+        size: { width: 1440, height: 810 },
+        rotation: 0,
+        opacity: 1,
+      },
+    ],
+  });
+
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  assert.equal(created.operation.type, "create-elements");
+  assert.equal(created.state.undoStack.length, state.undoStack.length + 1);
+  assert.deepEqual(
+    created.state.slides[0]?.elements.map((element) => element.id),
+    ["image_1", "image_2"],
+  );
+
+  const serialized = serializePresentationState(created.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  const undone = undo(restored.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.deepEqual(undone.state.slides[0]?.elements, []);
+});
+
+test("rejects an invalid image batch without changing Core state", () => {
+  const state = createStateWithSlide();
+  const result = create_elements(state, {
+    slideId: "slide_1",
+    elements: [
+      {
+        id: "image_1",
+        type: "image",
+        assetId: "asset_1",
+        position: { x: 0, y: 0 },
+        size: { width: 100, height: 100 },
+        rotation: 0,
+        opacity: 1,
+      },
+      {
+        id: "image_1",
+        type: "image",
+        assetId: "asset_2",
+        position: { x: 0, y: 0 },
+        size: { width: 100, height: 100 },
+        rotation: 0,
+        opacity: 1,
+      },
+    ],
+  });
+
+  assert.equal(result.success, false);
+  assert.deepEqual(result.state, state);
+});
+
+test("edits multiple elements atomically and restores every element through undo", () => {
+  const created = create_elements(createStateWithSlide(), {
+    slideId: "slide_1",
+    elements: [
+      {
+        id: "text_1",
+        type: "text",
+        content: "Before",
+        position: { x: 0, y: 0 },
+        size: { width: 400, height: 80 },
+        rotation: 0,
+        opacity: 1,
+      },
+      {
+        id: "image_1",
+        type: "image",
+        assetId: "asset_1",
+        position: { x: 500, y: 0 },
+        size: { width: 400, height: 80 },
+        rotation: 0,
+        opacity: 1,
+      },
+    ],
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const edited = edit_elements(created.state, {
+    slideId: "slide_1",
+    elementIds: ["text_1", "image_1"],
+    patch: { opacity: 0.5 },
+  });
+  assert.equal(edited.success, true);
+  if (!edited.success) return;
+  assert.equal(edited.operation.type, "edit-elements");
+  assert.deepEqual(
+    edited.state.slides[0]?.elements.map((element) => element.opacity),
+    [0.5, 0.5],
+  );
+  const serialized = serializePresentationState(edited.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  assert.deepEqual(restored.state, edited.state);
+
+  const undone = undo(edited.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.deepEqual(
+    undone.state.slides[0]?.elements.map((element) => element.opacity),
+    [1, 1],
+  );
+
+  const invalid = edit_elements(created.state, {
+    slideId: "slide_1",
+    elementIds: ["text_1", "image_1"],
+    patch: { content: "After" },
+  });
+  assert.equal(invalid.success, false);
+  assert.equal(invalid.error.code, "VALIDATION_ERROR");
+  assert.deepEqual(invalid.state, created.state);
+});
+
+test("resizes text freely and restores text layer changes through undo and redo", () => {
+  const state = createStateWithSlide();
+  const text = create_element(state, {
+    slideId: "slide_1",
+    element: {
+      id: "text_1",
+      type: "text",
+      content: "Resizable text",
+      position: { x: 400, y: 300 },
+      size: { width: 400, height: 200 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(text.success, true);
+  if (!text.success) return;
+  const shape = create_element(text.state, {
+    slideId: "slide_1",
+    element: {
+      id: "shape_1",
+      type: "shape",
+      shapeType: "rectangle",
+      position: { x: 900, y: 300 },
+      size: { width: 200, height: 200 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(shape.success, true);
+  if (!shape.success) return;
+  const resized = edit_element(shape.state, {
+    slideId: "slide_1",
+    elementId: "text_1",
+    patch: {
+      position: { x: 360, y: 260 },
+      size: { width: 480, height: 240 },
+    },
+  });
+  assert.equal(resized.success, true);
+  if (!resized.success) return;
+  const reordered = bring_forward(resized.state, {
+    slideId: "slide_1",
+    elementId: "text_1",
+  });
+  assert.equal(reordered.success, true);
+  if (!reordered.success) return;
+  assert.deepEqual(
+    reordered.state.slides[0]?.elements.map((element) => element.id),
+    ["shape_1", "text_1"],
+  );
+
+  const undo_layer = undo(reordered.state);
+  assert.equal(undo_layer.success, true);
+  if (!undo_layer.success) return;
+  assert.deepEqual(
+    undo_layer.state.slides[0]?.elements.map((element) => element.id),
+    ["text_1", "shape_1"],
+  );
+  const undo_resize = undo(undo_layer.state);
+  assert.equal(undo_resize.success, true);
+  if (!undo_resize.success) return;
+  const restored_text = undo_resize.state.slides[0]?.elements[0];
+  assert.deepEqual(restored_text?.position, { x: 400, y: 300 });
+  assert.deepEqual(restored_text?.size, { width: 400, height: 200 });
+
+  const redo_resize = redo(undo_resize.state);
+  assert.equal(redo_resize.success, true);
+  if (!redo_resize.success) return;
+  const redo_layer = redo(redo_resize.state);
+  assert.equal(redo_layer.success, true);
+  if (!redo_layer.success) return;
+  assert.deepEqual(
+    redo_layer.state.slides[0]?.elements.map((element) => element.id),
+    ["shape_1", "text_1"],
+  );
+});
+
+test("rotates an element through one edit operation without changing its bounds", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "shape_1",
+      type: "shape",
+      shapeType: "rectangle",
+      position: { x: 400, y: 300 },
+      size: { width: 400, height: 200 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const rotated = edit_element(created.state, {
+    slideId: "slide_1",
+    elementId: "shape_1",
+    patch: { rotation: 135 },
+  });
+  assert.equal(rotated.success, true);
+  if (!rotated.success) return;
+  assert.equal(rotated.operation.type, "edit-element");
+  assert.equal(rotated.state.slides[0]?.elements[0]?.rotation, 135);
+  assert.deepEqual(rotated.state.slides[0]?.elements[0]?.position, {
+    x: 400,
+    y: 300,
+  });
+  assert.deepEqual(rotated.state.slides[0]?.elements[0]?.size, {
+    width: 400,
+    height: 200,
+  });
+
+  const undone = undo(rotated.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.equal(undone.state.slides[0]?.elements[0]?.rotation, 0);
+});
 
 test("creates presentation state with stable initial revisions", () => {
   const result = createPresentation({
@@ -1814,6 +2077,36 @@ test("configures documented text, image, and shape visual styles", () => {
   const restored = deserializePresentationState(serialized.serializedState);
   assert.equal(restored.success, true);
   assert.deepEqual(restored.state, shape.state);
+});
+
+test("preserves line shape identity through Core creation and serialization", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "line_1",
+      type: "shape",
+      shapeType: "line",
+      position: { x: 100, y: 100 },
+      size: { width: 600, height: 2 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  assert.equal(created.state.slides[0]?.elements[0]?.type, "shape");
+  if (created.state.slides[0]?.elements[0]?.type === "shape") {
+    assert.equal(created.state.slides[0].elements[0].shapeType, "line");
+  }
+
+  const serialized = serializePresentationState(created.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  assert.deepEqual(restored.state, created.state);
 });
 
 test("rejects invalid visual-style patches without changing state", () => {

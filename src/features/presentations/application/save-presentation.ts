@@ -15,12 +15,14 @@ import type {
   LocalAsset,
   LocalPresentationOperation,
   PersistedPresentation,
+  PresentationAssetsTransactionRepository,
   PresentationAssetTransactionRepository,
   PresentationProjection,
   PresentationRepository,
   PresentationSnapshotOrigin,
   PresentationSyncMetadata,
 } from "./presentation-repository";
+import { PresentationPersistenceError } from "./presentation-repository";
 
 export type CreatePresentationIntegrityReceipt = (
   serialized_state: string,
@@ -88,6 +90,27 @@ export async function savePresentationWithLocalAsset(
   );
 }
 
+/** Persists binaries with the Core operation that references all of them. */
+export async function savePresentationWithLocalAssets(
+  repository: PresentationAssetsTransactionRepository,
+  assets: readonly LocalAsset[],
+  input: SavePresentationInput,
+): Promise<SavePresentationResult> {
+  if (
+    assets.length === 0 ||
+    new Set(assets.map((asset) => asset.metadata.id)).size !== assets.length ||
+    assets.some(
+      (asset) =>
+        !asset.metadata.presentationIds.includes(input.state.id) ||
+        !hasAssetReference(input.state, asset.metadata.id),
+    )
+  )
+    return { success: false, code: "INVALID_SERIALIZED_STATE" };
+  return persistPresentation(repository, input, (presentation) =>
+    repository.saveWithAssets(presentation, assets),
+  );
+}
+
 async function persistPresentation(
   repository: PresentationRepository,
   input: SavePresentationInput,
@@ -114,7 +137,12 @@ async function persistPresentation(
     operation,
     syncMetadata: createPendingSaveAcknowledgement(input, saved_at),
   });
-  await persist(presentation);
+  try {
+    await persist(presentation);
+  } catch (error) {
+    if (!(await canResumeCommittedPrimarySave(repository, presentation, error)))
+      throw error;
+  }
 
   const acknowledged = confirmPresentationSaved(input.state, {
     revision: input.state.revision,
@@ -141,6 +169,41 @@ async function persistPresentation(
     savedAt: saved_at,
   });
   return { success: true, state: acknowledged.state };
+}
+
+async function canResumeCommittedPrimarySave(
+  repository: PresentationRepository,
+  presentation: PersistedPresentation,
+  error: unknown,
+): Promise<boolean> {
+  if (
+    !(error instanceof PresentationPersistenceError) ||
+    error.code !== "LOCAL_OPERATION_ID_CONFLICT" ||
+    presentation.snapshotOrigin.kind !== "operation"
+  )
+    return false;
+  const stored = await repository.load(presentation.projection.id);
+  return (
+    stored !== null &&
+    stored.snapshotOrigin.kind === "operation" &&
+    stored.snapshotOrigin.localOperationId ===
+      presentation.snapshotOrigin.localOperationId &&
+    stored.projection.revision === presentation.projection.revision &&
+    hasSamePrimaryDocument(stored, presentation) &&
+    JSON.stringify(stored.operation) === JSON.stringify(presentation.operation)
+  );
+}
+
+function hasSamePrimaryDocument(
+  stored: PersistedPresentation,
+  expected: PersistedPresentation,
+): boolean {
+  return (
+    JSON.stringify({
+      ...stored.projection.document,
+      lastSavedAt: expected.projection.document.lastSavedAt,
+    }) === JSON.stringify(expected.projection.document)
+  );
 }
 
 export async function loadPresentation(

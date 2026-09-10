@@ -15,6 +15,7 @@ import {
 
 import type {
   LocalAsset,
+  PresentationAssetsTransactionRepository,
   PresentationAssetTransactionRepository,
   PresentationPersistenceErrorCode,
   PresentationRepository,
@@ -24,12 +25,14 @@ import { PresentationPersistenceError } from "./presentation-repository";
 import {
   savePresentation,
   savePresentationWithLocalAsset,
+  savePresentationWithLocalAssets,
 } from "./save-presentation";
 
 export interface PresentationIdGenerator {
   createPresentationId(): string;
   createPublicId(): string;
   createSlideId(): string;
+  createElementId(): string;
   createLocalOperationId(): string;
 }
 
@@ -46,6 +49,15 @@ export type PresentationCommandResult =
       readonly success: true;
       readonly state: PresentationState;
       readonly operation: PresentationOperation | null;
+    }
+  | { readonly success: false; readonly code: PresentationCommandErrorCode };
+
+export type PreparedPresentationCommandResult =
+  | {
+      readonly success: true;
+      readonly state: PresentationState;
+      readonly operation: PresentationOperation | null;
+      persist(): Promise<PresentationCommandResult>;
     }
   | { readonly success: false; readonly code: PresentationCommandErrorCode };
 
@@ -98,22 +110,41 @@ export class PresentationCommands {
     return this.ids.createSlideId();
   }
 
+  createElementId(): string {
+    return this.ids.createElementId();
+  }
+
+  createTimestamp(): string {
+    return this.clock.now();
+  }
+
   async execute(
     state: PresentationState,
     command: CorePresentationCommand,
     source: "user" | "system" = "user",
   ): Promise<PresentationCommandResult> {
+    return persistPreparedCommand(this.prepare(state, command, source));
+  }
+
+  prepare(
+    state: PresentationState,
+    command: CorePresentationCommand,
+    source: "user" | "system" = "user",
+  ): PreparedPresentationCommandResult {
     const result = command(state, { updatedAt: this.clock.now(), source });
     if (!result.success) return { success: false, code: result.error.code };
-    return this.persist(
-      result.state,
-      result.operation,
-      {
-        kind: "operation",
-        localOperationId: this.createUniqueLocalOperationId(),
-      },
-      this.clock.now(),
-    );
+    const snapshot_origin = {
+      kind: "operation" as const,
+      localOperationId: this.createUniqueLocalOperationId(),
+    };
+    const saved_at = this.clock.now();
+    return {
+      success: true,
+      state: result.state,
+      operation: result.operation,
+      persist: () =>
+        this.persist(result.state, result.operation, snapshot_origin, saved_at),
+    };
   }
 
   async executeWithLocalAsset(
@@ -122,46 +153,134 @@ export class PresentationCommands {
     command: CorePresentationCommand,
     source: "user" | "system" = "user",
   ): Promise<PresentationCommandResult> {
+    return persistPreparedCommand(
+      this.prepareWithLocalAsset(state, asset, command, source),
+    );
+  }
+
+  prepareWithLocalAsset(
+    state: PresentationState,
+    asset: LocalAsset,
+    command: CorePresentationCommand,
+    source: "user" | "system" = "user",
+  ): PreparedPresentationCommandResult {
     const result = command(state, { updatedAt: this.clock.now(), source });
     if (!result.success) return { success: false, code: result.error.code };
     const operation = result.operation;
     if (!isPresentationAssetTransactionRepository(this.repository))
       return { success: false, code: "PERSISTENCE_WRITE_FAILED" };
-    try {
-      const saved = await savePresentationWithLocalAsset(
-        this.repository,
-        asset,
-        {
-          state: result.state,
-          snapshotOrigin: {
-            kind: "operation",
-            localOperationId: this.createUniqueLocalOperationId(),
-          },
-          operation,
-          syncMetadata: this.createSyncMetadata(result.state, operation),
-          savedAt: this.clock.now(),
-        },
-      );
-      return saved.success
-        ? { success: true, state: saved.state, operation }
-        : { success: false, code: saved.code };
-    } catch (error) {
-      return { success: false, code: getErrorCode(error) };
-    }
+    const repository = this.repository;
+    const input = {
+      state: result.state,
+      snapshotOrigin: {
+        kind: "operation" as const,
+        localOperationId: this.createUniqueLocalOperationId(),
+      },
+      operation,
+      syncMetadata: this.createSyncMetadata(result.state, operation),
+      savedAt: this.clock.now(),
+    };
+    return {
+      success: true,
+      state: result.state,
+      operation,
+      persist: async () => {
+        try {
+          const saved = await savePresentationWithLocalAsset(
+            repository,
+            asset,
+            input,
+          );
+          return saved.success
+            ? { success: true, state: saved.state, operation }
+            : { success: false, code: saved.code };
+        } catch (error) {
+          return { success: false, code: getErrorCode(error) };
+        }
+      },
+    };
+  }
+
+  async executeWithLocalAssets(
+    state: PresentationState,
+    assets: readonly LocalAsset[],
+    command: CorePresentationCommand,
+    source: "user" | "system" = "user",
+  ): Promise<PresentationCommandResult> {
+    return persistPreparedCommand(
+      this.prepareWithLocalAssets(state, assets, command, source),
+    );
+  }
+
+  prepareWithLocalAssets(
+    state: PresentationState,
+    assets: readonly LocalAsset[],
+    command: CorePresentationCommand,
+    source: "user" | "system" = "user",
+  ): PreparedPresentationCommandResult {
+    const result = command(state, { updatedAt: this.clock.now(), source });
+    if (!result.success) return { success: false, code: result.error.code };
+    const operation = result.operation;
+    if (!isPresentationAssetsTransactionRepository(this.repository))
+      return { success: false, code: "PERSISTENCE_WRITE_FAILED" };
+    const repository = this.repository;
+    const input = {
+      state: result.state,
+      snapshotOrigin: {
+        kind: "operation" as const,
+        localOperationId: this.createUniqueLocalOperationId(),
+      },
+      operation,
+      syncMetadata: this.createSyncMetadata(result.state, operation),
+      savedAt: this.clock.now(),
+    };
+    return {
+      success: true,
+      state: result.state,
+      operation,
+      persist: async () => {
+        try {
+          const saved = await savePresentationWithLocalAssets(
+            repository,
+            assets,
+            input,
+          );
+          return saved.success
+            ? { success: true, state: saved.state, operation }
+            : { success: false, code: saved.code };
+        } catch (error) {
+          return { success: false, code: getErrorCode(error) };
+        }
+      },
+    };
   }
 
   async undo(
     state: PresentationState,
     source: "user" | "system" = "user",
   ): Promise<PresentationCommandResult> {
-    return this.persistHistoryResult(undo(state, { source }));
+    return persistPreparedCommand(this.prepareUndo(state, source));
+  }
+
+  prepareUndo(
+    state: PresentationState,
+    source: "user" | "system" = "user",
+  ): PreparedPresentationCommandResult {
+    return this.prepareHistoryResult(undo(state, { source }));
   }
 
   async redo(
     state: PresentationState,
     source: "user" | "system" = "user",
   ): Promise<PresentationCommandResult> {
-    return this.persistHistoryResult(redo(state, { source }));
+    return persistPreparedCommand(this.prepareRedo(state, source));
+  }
+
+  prepareRedo(
+    state: PresentationState,
+    source: "user" | "system" = "user",
+  ): PreparedPresentationCommandResult {
+    return this.prepareHistoryResult(redo(state, { source }));
   }
 
   async delete(
@@ -233,19 +352,22 @@ export class PresentationCommands {
     }
   }
 
-  private async persistHistoryResult(
+  private prepareHistoryResult(
     result: CommandResult,
-  ): Promise<PresentationCommandResult> {
+  ): PreparedPresentationCommandResult {
     if (!result.success) return { success: false, code: result.error.code };
-    return this.persist(
-      result.state,
-      result.operation,
-      {
-        kind: "operation",
-        localOperationId: this.createUniqueLocalOperationId(),
-      },
-      this.clock.now(),
-    );
+    const snapshot_origin = {
+      kind: "operation" as const,
+      localOperationId: this.createUniqueLocalOperationId(),
+    };
+    const saved_at = this.clock.now();
+    return {
+      success: true,
+      state: result.state,
+      operation: result.operation,
+      persist: () =>
+        this.persist(result.state, result.operation, snapshot_origin, saved_at),
+    };
   }
 
   private createSyncMetadata(
@@ -276,6 +398,12 @@ export class PresentationCommands {
   }
 }
 
+async function persistPreparedCommand(
+  prepared: PreparedPresentationCommandResult,
+): Promise<PresentationCommandResult> {
+  return prepared.success ? prepared.persist() : prepared;
+}
+
 function getErrorCode(error: unknown): PresentationPersistenceErrorCode {
   return error instanceof PresentationPersistenceError
     ? error.code
@@ -288,5 +416,14 @@ function isPresentationAssetTransactionRepository(
   return (
     "saveWithAsset" in repository &&
     typeof repository.saveWithAsset === "function"
+  );
+}
+
+function isPresentationAssetsTransactionRepository(
+  repository: PresentationRepository,
+): repository is PresentationAssetsTransactionRepository {
+  return (
+    "saveWithAssets" in repository &&
+    typeof repository.saveWithAssets === "function"
   );
 }

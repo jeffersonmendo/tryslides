@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { IDBFactory } from "fake-indexeddb";
 
+import { createEditorCapability } from "@/features/presentations/application/editor-capability";
 import {
   loadLocalAsset,
   saveLocalAsset,
@@ -14,9 +15,11 @@ import {
   loadPresentation,
   savePresentation,
   savePresentationWithLocalAsset,
+  savePresentationWithLocalAssets,
 } from "@/features/presentations/application/save-presentation";
 import {
   createElement,
+  createElements,
   createPresentation,
   createSlide,
   redo,
@@ -642,6 +645,54 @@ test("recovers a durable save acknowledgement after interruption", async () => {
   assert.equal(stored.syncMetadata.pendingSaveAcknowledgement, null);
 });
 
+test("retries acknowledgement after the primary operation is already durable", async () => {
+  const repository = createRepository();
+  const changed = createStateWithOperation();
+  const serialized = serializePresentationState(changed.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const snapshot_origin = createOperationSnapshotOrigin("retry-operation");
+  const sync_metadata = {
+    ...createSyncMetadata(),
+    pendingSaveAcknowledgement: {
+      revision: changed.state.revision,
+      localOperationId: "retry-operation",
+      savedAt: "2026-09-07T12:02:00.000Z",
+    },
+  };
+  await repository.save({
+    projection: createPresentationProjection(changed.state),
+    serializedState: serialized.serializedState,
+    integrityReceipt: null,
+    snapshotOrigin: snapshot_origin,
+    operation: {
+      localOperationId: "retry-operation",
+      presentationId: PRESENTATION_ID,
+      operation: changed.operation,
+    },
+    outboxEntry: {
+      localOperationId: "retry-operation",
+      presentationId: PRESENTATION_ID,
+      operation: changed.operation,
+      status: "pending",
+    },
+    syncMetadata: sync_metadata,
+  });
+
+  const retried = await savePresentation(repository, {
+    state: changed.state,
+    snapshotOrigin: snapshot_origin,
+    operation: changed.operation,
+    syncMetadata: createSyncMetadata(),
+    savedAt: "2026-09-07T12:02:00.000Z",
+  });
+
+  assert.equal(retried.success, true);
+  const stored = await repository.load(PRESENTATION_ID);
+  assert.notEqual(stored, null);
+  assert.equal(stored?.syncMetadata.pendingSaveAcknowledgement, null);
+});
+
 test("rejects an outbox entry that does not match the persisted operation", async () => {
   const factory = new IDBFactory();
   const database_name = `presentation-test-${crypto.randomUUID()}`;
@@ -700,6 +751,7 @@ test("coordinates deterministic creation, Core commands, undo, and persistence",
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
       createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
       createLocalOperationId: () => "local-operation-1",
     },
     { now: () => clock_values.shift() ?? "2026-09-07T12:04:00.000Z" },
@@ -732,6 +784,7 @@ test("creates a persisted presentation with its first empty slide", async () => 
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
       createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
       createLocalOperationId: () => "initial-slide-operation",
     },
     {
@@ -765,6 +818,94 @@ test("creates a persisted presentation with its first empty slide", async () => 
   ]);
 });
 
+test("persists text creation, editing, undo, redo, and reload through the editor capability", async () => {
+  const repository = createRepository();
+  let timestamp = Date.parse(CREATED_AT);
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => PRESENTATION_ID,
+      createPublicId: () => PUBLIC_ID,
+      createSlideId: () => "slide_1",
+      createElementId: () => "text_1",
+      createLocalOperationId: () => crypto.randomUUID(),
+    },
+    {
+      now: () => {
+        timestamp += 1;
+        return new Date(timestamp).toISOString();
+      },
+    },
+  );
+  const capability = createEditorCapability(repository, commands);
+  const created = await commands.createWithInitialSlide({
+    title: "Text editor",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const slide_id = created.state.slides[0]?.id;
+  assert.equal(slide_id, "slide_1");
+  if (slide_id === undefined) return;
+
+  const text_created_prepared = capability.createTextElement(created.state, {
+    slideId: slide_id,
+    content: "Welcome",
+  });
+  assert.equal(text_created_prepared.success, true);
+  if (!text_created_prepared.success) return;
+  const text_created = await text_created_prepared.persist();
+  assert.equal(text_created.success, true);
+  if (!text_created.success) return;
+  const text_edited_prepared = capability.editTextElement(text_created.state, {
+    slideId: slide_id,
+    elementId: "text_1",
+    content: "Welcome to Tryslides",
+    style: { fontSize: 64, fontWeight: 700, color: "#112233" },
+  });
+  assert.equal(text_edited_prepared.success, true);
+  if (!text_edited_prepared.success) return;
+  const text_edited = await text_edited_prepared.persist();
+  assert.equal(text_edited.success, true);
+  if (!text_edited.success) return;
+
+  const reloaded = await capability.loadPresentation(PRESENTATION_ID);
+  assert.equal(reloaded.success, true);
+  if (!reloaded.success) return;
+  const reloaded_text = reloaded.state.slides[0]?.elements[0];
+  assert.equal(reloaded_text?.type, "text");
+  if (reloaded_text?.type !== "text") return;
+  assert.equal(reloaded_text.content, "Welcome to Tryslides");
+  assert.deepEqual(reloaded_text.style, {
+    role: "Paragraph",
+    font: "Arial",
+    fontSize: 64,
+    fontWeight: 700,
+    color: "#112233",
+    alignment: "left",
+  });
+
+  const undone_prepared = capability.undo(reloaded.state);
+  assert.equal(undone_prepared.success, true);
+  if (!undone_prepared.success) return;
+  const undone = await undone_prepared.persist();
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  const redone_prepared = capability.redo(undone.state);
+  assert.equal(redone_prepared.success, true);
+  if (!redone_prepared.success) return;
+  const redone = await redone_prepared.persist();
+  assert.equal(redone.success, true);
+  if (!redone.success) return;
+  const reloaded_redone = await capability.loadPresentation(PRESENTATION_ID);
+  assert.equal(reloaded_redone.success, true);
+  if (!reloaded_redone.success) return;
+  assert.equal(
+    reloaded_redone.state.slides[0]?.elements[0]?.type === "text" &&
+      reloaded_redone.state.slides[0].elements[0].content,
+    "Welcome to Tryslides",
+  );
+});
+
 test("allocates distinct local operation IDs for repeated injected values", async () => {
   const repository = createRepository();
   const clock_values = [
@@ -780,6 +921,7 @@ test("allocates distinct local operation IDs for repeated injected values", asyn
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
       createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
       createLocalOperationId: () => "repeated-operation",
     },
     { now: () => clock_values.shift() ?? "2026-09-07T12:05:00.000Z" },
@@ -882,6 +1024,7 @@ test("normalizes repeated or regressive local clock values without changing Core
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
       createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
       createLocalOperationId: () => "operation",
     },
     {
@@ -1014,6 +1157,99 @@ test("atomically persists an asset with its referencing Core operation and rolls
   );
   assert.equal(await rollback_repository.load(PRESENTATION_ID), null);
   assert.equal(await rollback_repository.loadAsset("asset_1"), null);
+});
+
+test("atomically persists every asset for one image batch", async () => {
+  const repository = createRepository();
+  const created = createPresentation({
+    id: PRESENTATION_ID,
+    publicId: PUBLIC_ID,
+    title: "Batch assets",
+    createdAt: CREATED_AT,
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const slide = createSlide(created.state, {
+    id: "slide_1",
+    updatedAt: UPDATED_AT,
+  });
+  assert.equal(slide.success, true);
+  if (!slide.success) return;
+  const images = createElements(slide.state, {
+    slideId: "slide_1",
+    elements: [
+      {
+        id: "image_1",
+        type: "image",
+        assetId: "asset_1",
+        position: { x: 0, y: 0 },
+        size: { width: 10, height: 10 },
+        rotation: 0,
+        opacity: 1,
+      },
+      {
+        id: "image_2",
+        type: "image",
+        assetId: "asset_2",
+        position: { x: 20, y: 20 },
+        size: { width: 10, height: 10 },
+        rotation: 0,
+        opacity: 1,
+      },
+    ],
+    updatedAt: "2026-09-07T12:02:00.000Z",
+  });
+  assert.equal(images.success, true);
+  if (!images.success) return;
+  const assets = ["asset_1", "asset_2"].map((id) => {
+    const binary = new Blob([id], { type: "image/png" });
+    return {
+      metadata: {
+        id,
+        contentType: "image/png",
+        size: binary.size,
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
+        presentationIds: [PRESENTATION_ID],
+      },
+      binary,
+    };
+  });
+
+  const saved = await savePresentationWithLocalAssets(repository, assets, {
+    state: images.state,
+    snapshotOrigin: createOperationSnapshotOrigin("asset-batch-operation"),
+    operation: images.operation,
+    syncMetadata: createSyncMetadata(),
+    savedAt: "2026-09-07T12:03:00.000Z",
+  });
+  assert.equal(saved.success, true);
+  assert.notEqual(await repository.loadAsset("asset_1"), null);
+  assert.notEqual(await repository.loadAsset("asset_2"), null);
+  const loaded = await loadPresentation(repository, PRESENTATION_ID);
+  assert.equal(loaded.success, true);
+  if (!loaded.success) return;
+  assert.equal(
+    loaded.state.undoStack.at(-1)?.operation.type,
+    "create-elements",
+  );
+
+  const rollback_repository = createRepository();
+  await assert.rejects(
+    () =>
+      savePresentationWithLocalAssets(rollback_repository, assets, {
+        state: images.state,
+        snapshotOrigin: createOperationSnapshotOrigin("asset-batch-operation"),
+        operation: images.operation,
+        createIntegrityReceipt: () => () => undefined,
+        syncMetadata: createSyncMetadata(),
+        savedAt: "2026-09-07T12:03:00.000Z",
+      }),
+    { code: "PERSISTENCE_WRITE_FAILED" },
+  );
+  assert.equal(await rollback_repository.load(PRESENTATION_ID), null);
+  assert.equal(await rollback_repository.loadAsset("asset_1"), null);
+  assert.equal(await rollback_repository.loadAsset("asset_2"), null);
 });
 
 test("retains a referenced shared asset and cleans up orphaned assets after presentation deletion", async () => {

@@ -27,6 +27,7 @@ function createBrowserPresentationIdGenerator() {
     createPresentationId: () => crypto.randomUUID(),
     createPublicId,
     createSlideId: () => crypto.randomUUID(),
+    createElementId: () => crypto.randomUUID(),
     createLocalOperationId: () => crypto.randomUUID(),
   };
 }

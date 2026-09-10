@@ -34,7 +34,9 @@ const OPERATION_TYPES = new Set([
   "duplicate-slide",
   "reorder-slide",
   "create-element",
+  "create-elements",
   "edit-element",
+  "edit-elements",
   "delete-element",
   "duplicate-element",
   "reorder-element",
@@ -312,6 +314,8 @@ function hasOperationTypeCompatibleWithSnapshots(
       return isUpdatedSlide(before, after, operation, "transition");
     case "create-element":
       return isCreatedElement(before, after, operation, false);
+    case "create-elements":
+      return isCreatedElements(before, after, operation);
     case "duplicate-element":
       return isCreatedElement(before, after, operation, true);
     case "delete-element":
@@ -324,6 +328,8 @@ function hasOperationTypeCompatibleWithSnapshots(
       return isLayerMove(before, after, operation, -1);
     case "edit-element":
       return isUpdatedElement(before, after, operation, "other");
+    case "edit-elements":
+      return isUpdatedElements(before, after, operation);
     case "move-element":
       return isUpdatedElement(before, after, operation, "position");
     case "resize-element":
@@ -336,6 +342,45 @@ function hasOperationTypeCompatibleWithSnapshots(
     case "redo":
       return false;
   }
+}
+
+function isCreatedElements(
+  before: PresentationDocumentState,
+  after: PresentationDocumentState,
+  operation: PresentationOperation,
+): boolean {
+  const before_ids = new Set(
+    before.slides.flatMap((slide) =>
+      slide.elements.map((element) => element.id),
+    ),
+  );
+  const added = after.slides.flatMap((slide) =>
+    slide.elements.filter((element) => !before_ids.has(element.id)),
+  );
+  const changed_slide = getSingleChangedSlide(before, after, operation);
+  return (
+    added.length > 0 &&
+    changed_slide !== undefined &&
+    hasChanges(operation, ["slide", ...added.map(() => "element" as const)]) &&
+    hasSameDocumentExceptSlides(before, after) &&
+    hasSameItemsExceptRevision(
+      before.slides,
+      after.slides,
+      changed_slide.after.id,
+    ) &&
+    hasSameSlideNonElementValues(changed_slide.before, changed_slide.after) &&
+    added.every(
+      (element) =>
+        getElementSlideId(after, element.id) === changed_slide.after.id,
+    ) &&
+    changed_slide.after.elements.length ===
+      changed_slide.before.elements.length + added.length &&
+    changed_slide.before.elements.every(
+      (element, index) =>
+        JSON.stringify(element) ===
+        JSON.stringify(changed_slide.after.elements[index]),
+    )
+  );
 }
 
 function hasForwardRevisionTransitions(
@@ -623,6 +668,49 @@ function isUpdatedElement(
     before_element.type === after_element.type &&
     JSON.stringify(before_element.animations) ===
       JSON.stringify(after_element.animations)
+  );
+}
+
+function isUpdatedElements(
+  before: PresentationDocumentState,
+  after: PresentationDocumentState,
+  operation: PresentationOperation,
+): boolean {
+  const changed_slide = getSingleChangedSlide(before, after, operation);
+  if (
+    changed_slide === undefined ||
+    !hasSameDocumentExceptSlides(before, after) ||
+    !hasSameSlideNonElementValues(changed_slide.before, changed_slide.after) ||
+    changed_slide.before.elements.length !== changed_slide.after.elements.length
+  )
+    return false;
+
+  const changed_elements = changed_slide.before.elements.flatMap(
+    (before_element, index) => {
+      const after_element = changed_slide.after.elements[index];
+      if (after_element === undefined || before_element.id !== after_element.id)
+        return [];
+      return before_element.revision === after_element.revision &&
+        JSON.stringify(before_element) === JSON.stringify(after_element)
+        ? []
+        : [{ before: before_element, after: after_element }];
+    },
+  );
+  if (changed_elements.length === 0) return false;
+  if (
+    !hasChanges(operation, [
+      "slide",
+      ...changed_elements.map(() => "element" as const),
+    ])
+  )
+    return false;
+
+  return changed_elements.every(
+    ({ before: before_element, after: after_element }) =>
+      before_element.type === after_element.type &&
+      after_element.revision === before_element.revision + 1 &&
+      JSON.stringify(before_element.animations) ===
+        JSON.stringify(after_element.animations),
   );
 }
 

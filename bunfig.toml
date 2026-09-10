@@ -1,0 +1,5 @@
+[test]
+pathIgnorePatterns = [
+  "src/components/ui/color.test.tsx",
+  "src/features/presentations/components/text-inspector.native-color.test.tsx",
+]

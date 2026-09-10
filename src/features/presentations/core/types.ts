@@ -218,7 +218,9 @@ export type PresentationOperation = {
     | "duplicate-slide"
     | "reorder-slide"
     | "create-element"
+    | "create-elements"
     | "edit-element"
+    | "edit-elements"
     | "delete-element"
     | "duplicate-element"
     | "reorder-element"
@@ -310,6 +312,11 @@ export type CreateElementInput = CommandMetadata & {
   slideId: string;
   element: NewPresentationElement;
 };
+/** Creates a validated group of elements as one logical undoable operation. */
+export type CreateElementsInput = CommandMetadata & {
+  readonly slideId: string;
+  readonly elements: readonly NewPresentationElement[];
+};
 export type ElementPatch = {
   position?: ElementPosition;
   size?: ElementSize;
@@ -324,6 +331,12 @@ export type EditElementInput = CommandMetadata & {
   slideId: string;
   elementId: string;
   patch: ElementPatch;
+};
+/** Applies one compatible patch to a group as a single undoable operation. */
+export type EditElementsInput = CommandMetadata & {
+  readonly slideId: string;
+  readonly elementIds: readonly string[];
+  readonly patch: ElementPatch;
 };
 export type DeleteElementInput = CommandMetadata & {
   slideId: string;

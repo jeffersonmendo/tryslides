@@ -4,7 +4,6 @@ import type { EditorSlide } from "./editor-model";
 
 type SlideSidebarProps = {
   readonly activeSlideId: string | null;
-  readonly isPending: boolean;
   readonly labels: {
     readonly addSlide: string;
     readonly presentation: string;
@@ -20,7 +19,6 @@ type SlideSidebarProps = {
 
 export function SlideSidebar({
   activeSlideId,
-  isPending,
   labels,
   slides,
   onCreateSlide,
@@ -29,12 +27,11 @@ export function SlideSidebar({
   const initial_slide = slides[0] ?? null;
 
   return (
-    <div className="flex h-full flex-col gap-4 p-3">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden p-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium">{labels.slides}</h2>
         <Button
           aria-label={labels.addSlide}
-          disabled={isPending}
           size="icon-sm"
           variant="ghost"
           onClick={onCreateSlide}
@@ -42,7 +39,10 @@ export function SlideSidebar({
           <IconPlus data-icon="inline-start" />
         </Button>
       </div>
-      <nav aria-label={labels.slides} className="flex flex-col gap-2">
+      <nav
+        aria-label={labels.slides}
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain"
+      >
         {slides.map((slide) => (
           <button
             aria-current={slide.id === activeSlideId ? "true" : undefined}

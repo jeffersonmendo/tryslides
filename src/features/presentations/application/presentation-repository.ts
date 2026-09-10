@@ -174,3 +174,12 @@ export interface PresentationAssetTransactionRepository
     asset: LocalAsset,
   ): Promise<void>;
 }
+
+/** Extends the single-asset transaction without changing its public contract. */
+export interface PresentationAssetsTransactionRepository
+  extends PresentationAssetTransactionRepository {
+  saveWithAssets(
+    presentation: PersistedPresentation,
+    assets: readonly LocalAsset[],
+  ): Promise<void>;
+}

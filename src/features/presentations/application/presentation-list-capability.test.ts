@@ -34,6 +34,7 @@ test("exposes local presentation listing and creation through an application cap
       createPresentationId: () => PRESENTATION_ID,
       createPublicId: () => PUBLIC_ID,
       createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
       createLocalOperationId: () => "operation_1",
     },
     createClock(),
