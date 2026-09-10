@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
 import { EditorEntry } from "@/features/presentations/components/editor-entry";
 import { isValidPresentationId } from "@/features/presentations/core/presentation-core";
 import { routing } from "@/i18n/routing";
@@ -16,6 +15,5 @@ export default async function EditorPage({ params }: EditorPageProps) {
     notFound();
   }
 
-  setRequestLocale(locale);
   return <EditorEntry presentationId={id} />;
 }
