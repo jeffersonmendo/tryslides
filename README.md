@@ -1,32 +1,39 @@
 # Tryslides
 
-Create, design, animate, present, and share modern presentations.
+Create modern presentations through an MVP workflow in progress.
 
 Tryslides is a modern presentation editor built around a simple idea:
 
 > If you can see it, you can click it. If you can click it, you can edit it.
 
-The editor focuses on direct manipulation, discoverable controls, expressive animations, and a clean presentation workflow without unnecessary complexity.
+The editor focuses on direct manipulation, discoverable controls, planned
+expressive animations, and a clean presentation workflow without unnecessary
+complexity.
 
 ## Product
 
-The core workflow is:
+The MVP vision is:
 
 ```text
 Create → Design → Animate → Present → Share
 ```
 
-The initial product focuses on:
+The workflow defines the intended MVP scope. The current implementation is
+still focused on Create and Design foundations; Animate, Present, and Share
+are planned MVP stages, not currently available workflows. See the
+[`ROADMAP.md`](./ROADMAP.md) for the current implementation status.
+
+The MVP includes:
 
 - presentations and slides
 - text, images, and shapes
 - direct canvas editing
-- entrance, exit, and continuous animations
+- entrance, exit, and continuous animations (pending)
 - slide transitions
 - undo and redo
-- fullscreen presentation
-- static PDF export
-- public sharing
+- fullscreen presentation (pending)
+- static PDF export (pending)
+- public sharing (pending)
 
 AI, MCP, collaboration, advanced timelines, video, audio, and other advanced capabilities are intentionally outside the initial MVP.
 
@@ -63,6 +70,8 @@ Persistence is accessed through repository boundaries, allowing different implem
 ## Documentation
 
 Product-specific documentation lives in [`docs/product/`](./docs/product/README.md).
+
+Current implementation status lives in [`ROADMAP.md`](./ROADMAP.md).
 
 Engineering standards live in [`docs/standards/`](./docs/standards/README.md).
 

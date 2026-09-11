@@ -46,9 +46,13 @@ The goal is not to reproduce PowerPoint, Keynote, Canva, or Figma.
 
 The goal is to prove the Tryslides editing and presentation experience.
 
+This document defines MVP scope and product contracts. For current
+implementation status, see [`ROADMAP.md`](../../ROADMAP.md). In particular,
+Present Mode, public Sharing, and PDF Export remain pending MVP capabilities.
+
 ### Presentations
 
-Users can:
+The MVP presentation contract includes the ability to:
 
 - create a presentation
 - rename a presentation
@@ -58,6 +62,10 @@ Users can:
 - present fullscreen
 - share a presentation
 - export a static PDF
+
+The current UI implements local creation, opening, and persistence. Renaming
+and deleting presentations from the UI, fullscreen presentation, public
+sharing, and PDF export are pending.
 
 ### Slides
 
@@ -102,23 +110,27 @@ Text can configure:
 
 ### Initial Text Editor Slice
 
-The first implemented text-editor slice is deliberately narrower than the
-complete Text MVP. It creates a selected text element with localized default
-content, logical bounds of `x: 240`, `y: 450`, `width: 1440`, and `height: 180`.
-The right-side inspector persists content plus these basic visual properties:
+The implemented text-editor slice creates a selected text element with
+localized default content and logical bounds of `x: 240`, `y: 450`,
+`width: 1440`, and `height: 180`. The right-side inspector persists content
+and these visual properties:
 
 - role (`H1`, `H2`, `H3`, or `Paragraph`)
 - font size
 - font weight
 - color
 - alignment
+- position
+- width and height
+- rotation
+- opacity
 
 Choosing a role applies its initial typography preset: H1 is 64px/700, H2 is
 48px/700, H3 is 32px/700, and Paragraph is 16px/400. Users can then adjust the
 basic properties independently. Users can also edit text directly on the
-canvas: a blur or Ctrl+Enter confirms the edit, while Escape cancels it. Font
-family, gradients, opacity, position, size, rotation, and all image or shape
-behavior remain outside this initial text-editor slice.
+canvas: a blur or Ctrl+Enter confirms the edit, while Escape cancels it. Text
+elements can be moved, resized, and rotated directly on the canvas. Font
+family and gradients remain outside this initial text-editor slice.
 
 ### Images
 
@@ -132,6 +144,12 @@ Users can:
 - change border radius
 - configure object fit
 - replace the underlying image asset
+
+Each import accepts at most ten files. The file input and import validation
+accept files whose browser-reported MIME type matches `image/*`; there is no
+narrower format allowlist at present. Imports that exceed the limit, include a
+non-image type, or fail while reading are currently discarded without visible
+feedback. Providing user-visible import feedback is a pending product item.
 
 Image binaries are retained locally outside presentation documents. Deleting a
 presentation removes locally orphaned image binaries but preserves binaries
@@ -186,6 +204,18 @@ Users can:
 - send backward
 
 Undo and redo are required.
+
+### Implemented selection and ordering behavior
+
+The desktop editor supports the following interaction rules:
+
+- Ctrl-click on Windows/Linux or Cmd-click on macOS adds or removes an element
+  from the current selection.
+- A marquee selection includes an element only when the element's unrotated,
+  axis-aligned bounds are fully contained by the marquee.
+- For multiple selected elements, the group inspector currently edits rotation
+  and opacity. Other group properties are not currently exposed.
+- Slides can be reordered by dragging their entries in the slide navigation.
 
 ## Animations
 
@@ -265,6 +295,9 @@ A typical layout contains:
 - undo / redo
 - present action
 
+The current editor requires a desktop viewport. On mobile viewports it shows a
+desktop-required notice and does not provide editing controls.
+
 Selecting an element should expose controls appropriate to that element.
 
 Examples:
@@ -296,6 +329,9 @@ Slide:
 
 ## Present Mode
 
+**Status: pending MVP implementation.** The following is the intended
+contract, not a currently available mode.
+
 Present mode uses the same presentation semantics as the editor.
 
 A presentation progresses conceptually through:
@@ -317,6 +353,9 @@ Initial controls:
 
 ## Sharing
 
+**Status: pending MVP implementation.** The following is the intended public
+sharing and publication contract, not a currently available feature.
+
 A presentation can be made available through a public URL.
 
 Public URLs use an opaque six-character Base62 `publicId` and the route
@@ -332,6 +371,9 @@ The exact publishing/snapshot semantics must be documented before the
 sharing implementation is finalized.
 
 ## PDF Export
+
+**Status: pending MVP implementation.** The following defines the intended
+export contract; PDF export is not currently available.
 
 Tryslides supports static PDF export.
 
