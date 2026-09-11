@@ -25,10 +25,14 @@ import {
   editSlide,
   moveElement,
   PRESENTATION_CANVAS,
+  redoPresentation,
+  redoSlide,
   reorderSlide,
   resizeElement,
   sendBackward,
   sendToBack,
+  undoPresentation,
+  undoSlide,
 } from "@/features/presentations/core/presentation-core";
 
 import { loadLocalAsset } from "./local-assets";
@@ -186,6 +190,16 @@ export type EditorCapability = {
   loadAsset(asset_id: string): ReturnType<typeof loadLocalAsset>;
   undo(state: PresentationState): PreparedPresentationCommandResult;
   redo(state: PresentationState): PreparedPresentationCommandResult;
+  undoSlide(
+    state: PresentationState,
+    input: { readonly slideId: string },
+  ): PreparedPresentationCommandResult;
+  redoSlide(
+    state: PresentationState,
+    input: { readonly slideId: string },
+  ): PreparedPresentationCommandResult;
+  undoPresentation(state: PresentationState): PreparedPresentationCommandResult;
+  redoPresentation(state: PresentationState): PreparedPresentationCommandResult;
 };
 
 /** Browser input already validated and decoded at the UI boundary. */
@@ -415,6 +429,22 @@ export function createEditorCapability(
       loadLocalAsset(repository as unknown as LocalAssetRepository, asset_id),
     undo: (state) => commands.prepareUndo(state),
     redo: (state) => commands.prepareRedo(state),
+    undoSlide: (state, input) =>
+      commands.prepare(state, (current_state) =>
+        undoSlide(current_state, input.slideId),
+      ),
+    redoSlide: (state, input) =>
+      commands.prepare(state, (current_state) =>
+        redoSlide(current_state, input.slideId),
+      ),
+    undoPresentation: (state) =>
+      commands.prepare(state, (current_state) =>
+        undoPresentation(current_state),
+      ),
+    redoPresentation: (state) =>
+      commands.prepare(state, (current_state) =>
+        redoPresentation(current_state),
+      ),
   };
 }
 

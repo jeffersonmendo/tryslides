@@ -32,6 +32,8 @@ type EditorShellProps = {
   readonly canvas: { readonly width: number; readonly height: number };
   readonly canRedo: boolean;
   readonly canUndo: boolean;
+  readonly canRedoPresentation: boolean;
+  readonly canUndoPresentation: boolean;
   readonly selection: EditorSelection;
   readonly imageUrls?: Readonly<Record<string, string>>;
   readonly labels: {
@@ -126,6 +128,7 @@ type EditorShellProps = {
   readonly onCreateShape: (shape_type: "rectangle" | "circle" | "line") => void;
   readonly onUploadImages: (files: readonly File[]) => void;
   readonly onRedo: () => void;
+  readonly onRedoPresentation: () => void;
   readonly onSelectSlide: (slide_id: string) => void;
   readonly onSelectElement: (element_id: string, additive?: boolean) => void;
   readonly onSelectElements: (
@@ -177,6 +180,7 @@ type EditorShellProps = {
     duration?: number,
   ) => void;
   readonly onUndo: () => void;
+  readonly onUndoPresentation: () => void;
 };
 
 export function EditorShell({
@@ -188,6 +192,8 @@ export function EditorShell({
   canvas,
   canRedo,
   canUndo,
+  canRedoPresentation,
+  canUndoPresentation,
   selection,
   imageUrls = {},
   labels,
@@ -199,6 +205,7 @@ export function EditorShell({
   onCreateShape,
   onUploadImages,
   onRedo,
+  onRedoPresentation,
   onSelectSlide,
   onSelectElement,
   onSelectElements,
@@ -224,6 +231,7 @@ export function EditorShell({
   onTransitionChange,
   onTransitionCommit,
   onUndo,
+  onUndoPresentation,
 }: EditorShellProps) {
   return (
     <>
@@ -242,9 +250,13 @@ export function EditorShell({
             imageUrls={imageUrls}
             labels={labels}
             slides={slides}
+            canRedo={canRedoPresentation}
+            canUndo={canUndoPresentation}
             onCreateSlide={onCreateSlide}
+            onRedo={onRedoPresentation}
             onReorderSlide={on_reorder_slide}
             onSelectSlide={onSelectSlide}
+            onUndo={onUndoPresentation}
           />
         </Sidebar>
         <SidebarInset className="flex min-h-0 min-w-0 flex-col bg bg-transparent mt-3.5 rounded-2xl! shadow-none">

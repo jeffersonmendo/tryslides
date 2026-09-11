@@ -247,13 +247,22 @@ export type OperationHistoryEntry = {
   readonly after: PresentationDocumentState;
   readonly operation: PresentationOperation;
 };
+export type ScopedHistory = {
+  readonly undoStack: readonly OperationHistoryEntry[];
+  readonly redoStack: readonly OperationHistoryEntry[];
+};
 /**
  * The complete immutable Core state, including logical history required for
  * undo and redo.
  */
 export type PresentationState = PresentationDocumentState & {
+  /** Legacy complete-document history retained for snapshot compatibility. */
   readonly undoStack: readonly OperationHistoryEntry[];
   readonly redoStack: readonly OperationHistoryEntry[];
+  /** Slide-local histories only contain content and property operations. */
+  readonly slideHistories: Readonly<Record<string, ScopedHistory>>;
+  /** Presentation history only contains metadata and slide-structure operations. */
+  readonly presentationHistory: ScopedHistory;
 };
 export type CommandSuccess = {
   readonly success: true;

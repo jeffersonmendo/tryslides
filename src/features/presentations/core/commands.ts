@@ -99,6 +99,8 @@ export function createPresentation(
       lastPublishedAt: null,
       undoStack: [],
       redoStack: [],
+      slideHistories: {},
+      presentationHistory: { undoStack: [], redoStack: [] },
     }),
   });
 }
@@ -871,6 +873,36 @@ export function redo(
     ? failure(state, "REDO_NOT_AVAILABLE")
     : restoreHistoryEntry(state, input, entry, "redo");
 }
+/** Restores only the active slide's latest content or property operation. */
+export function undoSlide(
+  state: PresentationState,
+  slide_id: string,
+  input: HistoryCommandInput = {},
+): CommandResult {
+  return restoreScopedHistoryEntry(state, slide_id, "undo", input);
+}
+/** Reapplies only the active slide's latest content or property operation. */
+export function redoSlide(
+  state: PresentationState,
+  slide_id: string,
+  input: HistoryCommandInput = {},
+): CommandResult {
+  return restoreScopedHistoryEntry(state, slide_id, "redo", input);
+}
+/** Restores only presentation metadata and slide-structure operations. */
+export function undoPresentation(
+  state: PresentationState,
+  input: HistoryCommandInput = {},
+): CommandResult {
+  return restorePresentationHistoryEntry(state, "undo", input);
+}
+/** Reapplies only presentation metadata and slide-structure operations. */
+export function redoPresentation(
+  state: PresentationState,
+  input: HistoryCommandInput = {},
+): CommandResult {
+  return restorePresentationHistoryEntry(state, "redo", input);
+}
 function updateElement(
   state: PresentationState,
   input:
@@ -1032,17 +1064,208 @@ function succeed(
   // before/after documents, so history never depends on caller-owned objects.
   return Object.freeze({
     success: true,
-    state: snapshotState({
-      ...next_document,
-      undoStack: [
-        ...previous_state.undoStack,
+    state: snapshotState(
+      addScopedHistory(
         {
-          before: snapshotDocument(previous_state),
-          after: next_document,
-          operation,
+          ...next_document,
+          undoStack: [
+            ...previous_state.undoStack,
+            {
+              before: snapshotDocument(previous_state),
+              after: next_document,
+              operation,
+            },
+          ],
+          redoStack: [],
+          slideHistories: previous_state.slideHistories,
+          presentationHistory: previous_state.presentationHistory,
         },
-      ],
+        previous_state,
+        operation,
+        next_document,
+      ),
+    ),
+    operation,
+  });
+}
+function addScopedHistory(
+  state: PresentationState,
+  previous_state: PresentationState,
+  operation: PresentationOperation,
+  next_document: import("./types").PresentationDocumentState,
+): PresentationState {
+  const entry: OperationHistoryEntry = {
+    before: snapshotDocument(previous_state),
+    after: next_document,
+    operation,
+  };
+  if (isPresentationScopedOperation(operation.type))
+    return {
+      ...state,
+      presentationHistory: {
+        undoStack: [...previous_state.presentationHistory.undoStack, entry],
+        redoStack: [],
+      },
+    };
+  const slide_id = getOperationSlideId(entry);
+  if (slide_id === null) return state;
+  const history = previous_state.slideHistories[slide_id] ?? {
+    undoStack: [],
+    redoStack: [],
+  };
+  return {
+    ...state,
+    slideHistories: {
+      ...previous_state.slideHistories,
+      [slide_id]: { undoStack: [...history.undoStack, entry], redoStack: [] },
+    },
+  };
+}
+function isPresentationScopedOperation(
+  type: PresentationOperation["type"],
+): boolean {
+  return [
+    "create-slide",
+    "delete-slide",
+    "duplicate-slide",
+    "reorder-slide",
+    "rename-presentation",
+  ].includes(type);
+}
+function getOperationSlideId(entry: OperationHistoryEntry): string | null {
+  const ids = new Set<string>();
+  for (const change of entry.operation.changes) {
+    if (change.entityType === "slide") ids.add(change.entityId);
+    if (change.entityType === "element") {
+      const owner = [entry.before, entry.after]
+        .flatMap((document) => document.slides)
+        .find((slide) =>
+          slide.elements.some((element) => element.id === change.entityId),
+        );
+      if (owner !== undefined) ids.add(owner.id);
+    }
+  }
+  return ids.size === 1 ? (ids.values().next().value ?? null) : null;
+}
+function restoreScopedHistoryEntry(
+  state: PresentationState,
+  slide_id: string,
+  operation_type: "undo" | "redo",
+  input: HistoryCommandInput,
+): CommandResult {
+  const history = state.slideHistories[slide_id];
+  const entry =
+    history?.[operation_type === "undo" ? "undoStack" : "redoStack"].at(-1);
+  if (entry === undefined)
+    return failure(
+      state,
+      operation_type === "undo" ? "UNDO_NOT_AVAILABLE" : "REDO_NOT_AVAILABLE",
+    );
+  const snapshot = operation_type === "undo" ? entry.before : entry.after;
+  const slide = snapshot.slides.find((current) => current.id === slide_id);
+  const index = findSlideIndex(state, slide_id);
+  if (slide === undefined || index === -1)
+    return failure(
+      state,
+      operation_type === "undo" ? "UNDO_NOT_AVAILABLE" : "REDO_NOT_AVAILABLE",
+    );
+  return restoreScopedState(
+    state,
+    entry,
+    operation_type,
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, index, slide),
+    },
+    {
+      ...state.slideHistories,
+      [slide_id]: {
+        undoStack:
+          operation_type === "undo"
+            ? history.undoStack.slice(0, -1)
+            : [...history.undoStack, entry],
+        redoStack:
+          operation_type === "undo"
+            ? [...history.redoStack, entry]
+            : history.redoStack.slice(0, -1),
+      },
+    },
+    state.presentationHistory,
+  );
+}
+function restorePresentationHistoryEntry(
+  state: PresentationState,
+  operation_type: "undo" | "redo",
+  input: HistoryCommandInput,
+): CommandResult {
+  const history = state.presentationHistory;
+  const entry =
+    history[operation_type === "undo" ? "undoStack" : "redoStack"].at(-1);
+  if (entry === undefined)
+    return failure(
+      state,
+      operation_type === "undo" ? "UNDO_NOT_AVAILABLE" : "REDO_NOT_AVAILABLE",
+    );
+  const target = operation_type === "undo" ? entry.before : entry.after;
+  const existing = new Map(state.slides.map((slide) => [slide.id, slide]));
+  const slides = target.slides.map((slide) => existing.get(slide.id) ?? slide);
+  return restoreScopedState(
+    state,
+    entry,
+    operation_type,
+    input,
+    {
+      ...state,
+      title: target.title,
+      slides,
+    },
+    state.slideHistories,
+    {
+      undoStack:
+        operation_type === "undo"
+          ? history.undoStack.slice(0, -1)
+          : [...history.undoStack, entry],
+      redoStack:
+        operation_type === "undo"
+          ? [...history.redoStack, entry]
+          : history.redoStack.slice(0, -1),
+    },
+  );
+}
+function restoreScopedState(
+  state: PresentationState,
+  entry: OperationHistoryEntry,
+  operation_type: "undo" | "redo",
+  input: HistoryCommandInput,
+  document: PresentationState,
+  slide_histories: PresentationState["slideHistories"],
+  presentation_history: PresentationState["presentationHistory"],
+): CommandResult {
+  if (input.source !== undefined && !isValidOperationSource(input.source))
+    return failure(state, "VALIDATION_ERROR");
+  const sequence = state.operationSequence + 1;
+  const operation = snapshotOperation({
+    id: `operation_${sequence}`,
+    sequence,
+    type: operation_type,
+    source: input.source ?? "user",
+    changes:
+      operation_type === "undo"
+        ? entry.operation.changes.map(reverseRevisionChange)
+        : entry.operation.changes,
+  });
+  return Object.freeze({
+    success: true,
+    state: snapshotState({
+      ...document,
+      operationSequence: sequence,
+      // Legacy complete-document history cannot remain coherent after a scoped
+      // restoration. Scoped stacks preserve the actionable history instead.
+      undoStack: [],
       redoStack: [],
+      slideHistories: slide_histories,
+      presentationHistory: presentation_history,
     }),
     operation,
   });
@@ -1084,6 +1307,8 @@ function restoreHistoryEntry(
         operation_type === "undo"
           ? [...state.redoStack, entry]
           : state.redoStack.slice(0, -1),
+      slideHistories: state.slideHistories,
+      presentationHistory: state.presentationHistory,
     }),
     operation,
   });

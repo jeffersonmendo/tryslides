@@ -77,18 +77,22 @@ test("loads distinct image assets referenced by every effective slide", () => {
   assert.match(source, /references\.set\(element\.assetId/);
 });
 
-test("only enables and dispatches history for the active slide after drafts flush", () => {
+test("uses independent active-slide and presentation history after drafts flush", () => {
   assert.match(
     source,
-    /const can_redo =[\s\S]*redo_entry !== undefined[\s\S]*isHistoryEntryApplicableToSlide\(redo_entry, active_slide_id\)/,
+    /const slide_history =[\s\S]*status\.state\.slideHistories\[active_slide_id\]/,
   );
   assert.match(
     source,
-    /function runHistoryCommand[\s\S]*scheduler_ref\.current\?\.flushAll\(\)[\s\S]*session\?\.getSnapshot\(\)\.state\[stack\]\.at\(-1\)[\s\S]*isHistoryEntryApplicableToSlide\(entry, active_slide_id\)[\s\S]*return runCommand\(command\)/,
+    /function runSlideHistoryCommand[\s\S]*scheduler_ref\.current\?\.flushAll\(\)[\s\S]*slideHistories\[active_slide_id\]\?\.\[stack\]/,
   );
   assert.match(
     source,
-    /onRedo=\{\(\) => \{[\s\S]*runHistoryCommand\(capability\.redo, "redoStack"\)/,
+    /onRedo=\{\(\) => \{[\s\S]*runSlideHistoryCommand\(capability\.redoSlide, "redoStack"\)/,
+  );
+  assert.match(
+    source,
+    /runPresentationHistoryCommand\(capability\.undoPresentation, "undoStack"\)/,
   );
 });
 

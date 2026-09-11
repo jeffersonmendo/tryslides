@@ -4,9 +4,16 @@ import {
   type DragOverEvent,
 } from "@dnd-kit/react";
 import { isSortableOperation, useSortable } from "@dnd-kit/react/sortable";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  IconArrowBackUp,
+  IconArrowForwardUp,
+  IconHome,
+  IconPlus,
+} from "@tabler/icons-react";
+import Link from "next/link";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import type { EditorSlide } from "./editor-model";
 import { SlideVisualContent } from "./slide-visual-content";
 
@@ -17,19 +24,25 @@ type SlideSidebarProps = {
   readonly imageUrls: Readonly<Record<string, string>>;
   readonly labels: {
     readonly addSlide: string;
+    readonly redo: string;
     readonly presentation: string;
     readonly slide: string;
     readonly slideBackground: string;
     readonly slideTransition: string;
     readonly slides: string;
+    readonly undo: string;
   };
   readonly slides: readonly EditorSlide[];
+  readonly canRedo: boolean;
+  readonly canUndo: boolean;
   readonly onCreateSlide: () => void;
+  readonly onRedo: () => void;
   readonly onReorderSlide: (
     slide_id: string,
     after_slide_id: string | null,
   ) => void;
   readonly onSelectSlide: (slide_id: string) => void;
+  readonly onUndo: () => void;
 };
 
 type SlideDragEndInput = {
@@ -46,24 +59,63 @@ export function SlideSidebar({
   imageUrls: image_urls,
   labels,
   slides,
+  canRedo: can_redo,
+  canUndo: can_undo,
   onCreateSlide,
+  onRedo: on_redo,
   onReorderSlide: on_reorder_slide,
   onSelectSlide: on_select_slide,
+  onUndo: on_undo,
 }: SlideSidebarProps) {
   const latest_target_id_ref = useRef<string | null>(null);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden p-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">{labels.slides}</h2>
-        <Button
-          aria-label={labels.addSlide}
-          size="icon-sm"
-          variant="ghost"
-          onClick={onCreateSlide}
-        >
-          <IconPlus data-icon="inline-start" />
-        </Button>
+      <div className="flex flex-col justify-between gap-2">
+        <div className="flex items-center justify-between gap-1">
+          <Button
+            aria-label={"home"}
+            size="icon-sm"
+            variant="ghost"
+            nativeButton={false}
+            render={
+              <Link href="/">
+                <IconHome data-icon="inline-start" />
+              </Link>
+            }
+          />
+          <div className="flex items-center gap-1">
+            <Button
+              aria-label={labels.undo}
+              disabled={!can_undo}
+              size="icon-sm"
+              variant="ghost"
+              onClick={on_undo}
+            >
+              <IconArrowBackUp data-icon="inline-start" />
+            </Button>
+            <Button
+              aria-label={labels.redo}
+              disabled={!can_redo}
+              size="icon-sm"
+              variant="ghost"
+              onClick={on_redo}
+            >
+              <IconArrowForwardUp data-icon="inline-start" />
+            </Button>
+            <div>
+              <Separator className={"h-6"} orientation="vertical" />
+            </div>
+            <Button
+              aria-label={labels.addSlide}
+              size="icon-sm"
+              variant="ghost"
+              onClick={onCreateSlide}
+            >
+              <IconPlus data-icon="inline-start" />
+            </Button>
+          </div>
+        </div>
       </div>
       <DragDropProvider
         onDragEnd={(event) => {
@@ -110,7 +162,16 @@ function SortableSlide({
   slide,
   index,
   onSelectSlide: on_select_slide,
-}: Omit<SlideSidebarProps, "slides" | "onCreateSlide" | "onReorderSlide"> & {
+}: Omit<
+  SlideSidebarProps,
+  | "slides"
+  | "canRedo"
+  | "canUndo"
+  | "onCreateSlide"
+  | "onRedo"
+  | "onReorderSlide"
+  | "onUndo"
+> & {
   readonly slide: EditorSlide;
   readonly index: number;
 }) {

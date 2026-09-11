@@ -122,6 +122,28 @@ export function snapshotState(state: PresentationState): PresentationState {
     ...snapshotDocument(state),
     undoStack: Object.freeze(state.undoStack.map(snapshotHistoryEntry)),
     redoStack: Object.freeze(state.redoStack.map(snapshotHistoryEntry)),
+    slideHistories: snapshotSlideHistories(state.slideHistories),
+    presentationHistory: snapshotScopedHistory(state.presentationHistory),
+  });
+}
+function snapshotSlideHistories(
+  histories: Readonly<Record<string, import("./types").ScopedHistory>>,
+): Readonly<Record<string, import("./types").ScopedHistory>> {
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(histories).map(([slide_id, history]) => [
+        slide_id,
+        snapshotScopedHistory(history),
+      ]),
+    ),
+  );
+}
+function snapshotScopedHistory(
+  history: import("./types").ScopedHistory,
+): import("./types").ScopedHistory {
+  return Object.freeze({
+    undoStack: Object.freeze(history.undoStack.map(snapshotHistoryEntry)),
+    redoStack: Object.freeze(history.redoStack.map(snapshotHistoryEntry)),
   });
 }
 export function snapshotDocument(

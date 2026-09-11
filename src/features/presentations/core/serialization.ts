@@ -115,7 +115,10 @@ export function isPresentationOperationCompatibleWithState(
       state.revision === 1 &&
       state.operationSequence === 0 &&
       state.undoStack.length === 0 &&
-      state.redoStack.length === 0
+      state.redoStack.length === 0 &&
+      Object.keys(state.slideHistories).length === 0 &&
+      state.presentationHistory.undoStack.length === 0 &&
+      state.presentationHistory.redoStack.length === 0
     );
   if (
     !isValidOperation(operation) ||
@@ -123,24 +126,36 @@ export function isPresentationOperationCompatibleWithState(
   )
     return false;
   if (operation.type === "undo")
-    return state.redoStack.some(
-      (entry) =>
-        hasSameDocumentContent(state, entry.before) &&
-        hasSameOperationChanges(operation, {
-          ...entry.operation,
-          changes: entry.operation.changes.map(reverseRevisionTransition),
-        }),
-    );
+    return hasScopedHistoryOperation(state, operation, "undo");
   if (operation.type === "redo")
-    return state.undoStack.some(
-      (entry) =>
-        hasSameDocumentContent(state, entry.after) &&
-        hasSameOperationChanges(operation, entry.operation),
-    );
+    return hasScopedHistoryOperation(state, operation, "redo");
   return state.undoStack.some(
     (entry) =>
       hasSameDocumentContent(state, entry.after) &&
       JSON.stringify(operation) === JSON.stringify(entry.operation),
+  );
+}
+function hasScopedHistoryOperation(
+  state: PresentationState,
+  operation: PresentationOperation,
+  direction: "undo" | "redo",
+): boolean {
+  const histories = [
+    state.presentationHistory,
+    ...Object.values(state.slideHistories),
+  ];
+  return histories.some((history) =>
+    [...history.undoStack, ...history.redoStack].some((entry) =>
+      hasSameOperationChanges(
+        operation,
+        direction === "undo"
+          ? {
+              ...entry.operation,
+              changes: entry.operation.changes.map(reverseRevisionTransition),
+            }
+          : entry.operation,
+      ),
+    ),
   );
 }
 
@@ -156,6 +171,8 @@ function isValidPresentationState(value: unknown): value is PresentationState {
       "operationSequence",
       "undoStack",
       "redoStack",
+      "slideHistories",
+      "presentationHistory",
       "status",
       "createdAt",
       "updatedAt",
@@ -166,16 +183,25 @@ function isValidPresentationState(value: unknown): value is PresentationState {
     return false;
   const undo_stack = value.undoStack;
   const redo_stack = value.redoStack;
+  const slide_histories = value.slideHistories;
+  const presentation_history = value.presentationHistory;
   if (
     !hasValidDocumentValues(value) ||
     !isValidHistoryStack(undo_stack) ||
     !isValidHistoryStack(redo_stack)
   )
     return false;
+  if (
+    !isValidSlideHistories(slide_histories) ||
+    !isValidScopedHistory(presentation_history)
+  )
+    return false;
   return hasCoherentHistory({
     ...value,
     undoStack: undo_stack,
     redoStack: redo_stack,
+    slideHistories: slide_histories,
+    presentationHistory: presentation_history,
   });
 }
 
@@ -1248,6 +1274,26 @@ function isValidHistoryStack(
   value: unknown,
 ): value is readonly OperationHistoryEntry[] {
   return Array.isArray(value) && value.every(isValidHistoryEntry);
+}
+function isValidScopedHistory(
+  value: unknown,
+): value is import("./types").ScopedHistory {
+  return (
+    isRecordWithKeys(value, ["undoStack", "redoStack"]) &&
+    isValidHistoryStack(value.undoStack) &&
+    isValidHistoryStack(value.redoStack)
+  );
+}
+function isValidSlideHistories(
+  value: unknown,
+): value is Readonly<Record<string, import("./types").ScopedHistory>> {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([slide_id, history]) =>
+        isValidIdentifier(slide_id) && isValidScopedHistory(history),
+    )
+  );
 }
 
 function isValidDocument(value: unknown): value is PresentationDocumentState {

@@ -1,12 +1,42 @@
 import {
   IconArrowBackUp,
   IconArrowForwardUp,
-  IconPhoto,
-  IconShape,
-  IconTypography,
+  IconArrowRight,
+  IconArrowsHorizontal,
+  IconBubble,
+  IconCircle,
+  IconDiamonds,
+  IconDivide,
+  IconEqual,
+  IconEqualNot,
+  IconHeart,
+  IconIcons,
+  IconMessageCircle,
+  IconMinus,
+  IconPhotoPlus,
+  IconPlus,
+  IconRectangle,
+  IconStar,
+  IconStrokeStraight,
+  IconTextSize,
+  IconTriangle,
+  IconX,
 } from "@tabler/icons-react";
+import * as Lucide from "lucide-react";
 import { type ChangeEvent, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 
 type EditorHeaderProps = {
   readonly title: string;
@@ -49,25 +79,160 @@ export function EditorHeader({
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 rounded-2xl dark:bg-sidebar bg-white px-4">
       <h1 className="truncate text-sm">{title}</h1>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        <Button size="icon" type="button" variant="ghost">
+          <Lucide.PenTool data-icon="inline-start" />
+        </Button>
         <Button
-          size="sm"
+          size="icon"
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={onCreateText}
         >
-          <IconTypography data-icon="inline-start" />
-          {addTextLabel}
+          <IconTextSize data-icon="inline-start" />
         </Button>
         <Button
-          size="sm"
+          size="icon"
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={() => onCreateShape("rectangle")}
         >
-          <IconShape data-icon="inline-start" />
-          {addShapeLabel}
+          <IconIcons data-icon="inline-start" />
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button size="icon" type="button" variant="ghost">
+                <IconIcons data-icon="inline-start" />
+              </Button>
+            }
+          />
+
+          <DropdownMenuContent>
+            <DropdownMenuGroup>
+              {/* Shapes */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Shapes</DropdownMenuSubTrigger>
+
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <IconRectangle />
+                      Rectangle
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconCircle />
+                      Circle
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconTriangle />
+                      Triangle
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconDiamonds />
+                      Diamond
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconStar />
+                      Star
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconHeart />
+                      Heart
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+
+              {/* Lines */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Lines</DropdownMenuSubTrigger>
+
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <IconStrokeStraight />
+                      Line
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconArrowRight />
+                      Arrow
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconArrowsHorizontal />
+                      Double Arrow
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+
+              {/* Callouts */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Callouts</DropdownMenuSubTrigger>
+
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <IconBubble />
+                      Speech Bubble
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconMessageCircle />
+                      Round Bubble
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+
+              {/* Math */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Math</DropdownMenuSubTrigger>
+
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <IconPlus />
+                      Plus
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconMinus />
+                      Minus
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconX />
+                      Multiply
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconDivide />
+                      Divide
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconEqual />
+                      Equal
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem>
+                      <IconEqualNot />
+                      Not Equal
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <input
           ref={image_input_ref}
           accept="image/*"
@@ -77,19 +242,21 @@ export function EditorHeader({
           onChange={handleImageChange}
         />
         <Button
-          size="sm"
+          size="icon"
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={() => image_input_ref.current?.click()}
         >
-          <IconPhoto data-icon="inline-start" />
-          {addImageLabel}
+          <IconPhotoPlus data-icon="inline-start" />
         </Button>
+        <div>
+          <Separator className={"h-6"} orientation="vertical" />
+        </div>
         <Button
           aria-label={undoLabel}
           disabled={!canUndo}
-          size="icon-sm"
-          variant="secondary"
+          size="icon"
+          variant="ghost"
           onClick={onUndo}
         >
           <IconArrowBackUp data-icon="inline-start" />
@@ -97,8 +264,8 @@ export function EditorHeader({
         <Button
           aria-label={redoLabel}
           disabled={!canRedo}
-          size="icon-sm"
-          variant="secondary"
+          size="icon"
+          variant="ghost"
           onClick={onRedo}
         >
           <IconArrowForwardUp data-icon="inline-start" />

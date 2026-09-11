@@ -23,6 +23,8 @@ export {
   editSlide,
   moveElement,
   redo,
+  redoPresentation,
+  redoSlide,
   renamePresentation,
   reorderElement,
   reorderSlide,
@@ -31,6 +33,8 @@ export {
   sendBackward,
   sendToBack,
   undo,
+  undoPresentation,
+  undoSlide,
 } from "./commands";
 export { isHistoryEntryApplicableToSlide } from "./history";
 export {
@@ -94,6 +98,7 @@ export type {
   ReorderSlideInput,
   ReplaceAssetInput,
   ResizeElementInput,
+  ScopedHistory,
   SendBackwardInput,
   SendToBackInput,
   SerializePresentationStateResult,

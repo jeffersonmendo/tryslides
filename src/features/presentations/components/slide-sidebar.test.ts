@@ -21,6 +21,19 @@ test("renders decorative visual previews for every slide sidebar button", () => 
   );
 });
 
+test("renders presentation history controls beside add slide without a visible heading", () => {
+  assert.match(source_text, /IconArrowBackUp/);
+  assert.match(
+    source_text,
+    /aria-label=\{labels\.undo\}[\s\S]*disabled=\{!can_undo\}/,
+  );
+  assert.match(
+    source_text,
+    /aria-label=\{labels\.redo\}[\s\S]*disabled=\{!can_redo\}/,
+  );
+  assert.doesNotMatch(source_text, /<h2[^>]*>\{labels\.slides\}<\/h2>/);
+});
+
 test("uses sortable event data to preserve a genuine reorder after optimistic sorting", () => {
   assert.match(source_text, /DragDropProvider/);
   assert.match(

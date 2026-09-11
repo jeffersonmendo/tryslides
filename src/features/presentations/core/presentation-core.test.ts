@@ -34,9 +34,12 @@ import {
   isHistoryEntryApplicableToSlide,
   PRESENTATION_CANVAS,
   redo,
+  redoPresentation,
   serializePresentationState,
   TRANSITION_CAPABILITIES,
   undo,
+  undoPresentation,
+  undoSlide,
 } from "./presentation-core";
 
 const PRESENTATION_ID = "550e8400-e29b-41d4-a716-446655440000";
@@ -646,8 +649,95 @@ test("creates presentation state with stable initial revisions", () => {
       lastPublishedAt: null,
       undoStack: [],
       redoStack: [],
+      slideHistories: {},
+      presentationHistory: { undoStack: [], redoStack: [] },
     },
   });
+});
+
+test("keeps slide-content histories isolated across slides and structure changes", () => {
+  const first = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first.success, true);
+  if (!first.success) return;
+  const second = create_slide(first.state, { id: "slide_2" });
+  assert.equal(second.success, true);
+  if (!second.success) return;
+  const edited_first = edit_slide(second.state, {
+    slideId: "slide_1",
+    patch: { background: { type: "solid", color: "#000000" } },
+  });
+  assert.equal(edited_first.success, true);
+  if (!edited_first.success) return;
+  const edited_second = edit_slide(edited_first.state, {
+    slideId: "slide_2",
+    patch: { background: { type: "solid", color: "#FF0000" } },
+  });
+  assert.equal(edited_second.success, true);
+  if (!edited_second.success) return;
+
+  const undone = undoSlide(edited_second.state, "slide_1");
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.deepEqual(
+    undone.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_2"],
+  );
+  assert.deepEqual(undone.state.slides[0]?.background, {
+    type: "solid",
+    color: "#FFFFFF",
+  });
+  assert.deepEqual(undone.state.slides[1]?.background, {
+    type: "solid",
+    color: "#FF0000",
+  });
+  assert.equal(undone.state.presentationHistory.undoStack.length, 2);
+  const serialized = serializePresentationState(undone.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  assert.equal(restored.state.slideHistories.slide_1?.redoStack.length, 1);
+});
+
+test("presentation history restores structure without overwriting slide content", () => {
+  const first = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first.success, true);
+  if (!first.success) return;
+  const second = create_slide(first.state, { id: "slide_2" });
+  assert.equal(second.success, true);
+  if (!second.success) return;
+  const reordered = reorder_slide(second.state, {
+    slideId: "slide_1",
+    afterSlideId: "slide_2",
+  });
+  assert.equal(reordered.success, true);
+  if (!reordered.success) return;
+  const edited = edit_slide(reordered.state, {
+    slideId: "slide_1",
+    patch: { background: { type: "solid", color: "#000000" } },
+  });
+  assert.equal(edited.success, true);
+  if (!edited.success) return;
+
+  const undone = undoPresentation(edited.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.deepEqual(
+    undone.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_2"],
+  );
+  assert.deepEqual(undone.state.slides[0]?.background, {
+    type: "solid",
+    color: "#000000",
+  });
+  const redone = redoPresentation(undone.state);
+  assert.equal(redone.success, true);
+  if (!redone.success) return;
+  assert.deepEqual(
+    redone.state.slides.map((slide) => slide.id),
+    ["slide_2", "slide_1"],
+  );
 });
 
 test("requires UUID and six-character Base62 public identifiers with explicit UTC creation time", () => {

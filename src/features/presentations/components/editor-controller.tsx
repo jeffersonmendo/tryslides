@@ -24,7 +24,6 @@ import type {
   TextStylePatch,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
-import { isHistoryEntryApplicableToSlide } from "@/features/presentations/core/presentation-core";
 import type { EditorIntentDraft } from "./editor-drafts";
 import type { DragCommitResult } from "./editor-drag";
 import {
@@ -176,18 +175,34 @@ export function EditorController({
     return dispatched.persisted.then((persisted) => ({ persisted }));
   }
 
-  function runHistoryCommand(
-    command: EditorCapability["undo"] | EditorCapability["redo"],
+  function runSlideHistoryCommand(
+    command: EditorCapability["undoSlide"] | EditorCapability["redoSlide"],
     stack: "undoStack" | "redoStack",
   ): Promise<EditorCommandRunResult> {
     scheduler_ref.current?.flushAll();
     const session = session_ref.current;
     const active_slide_id = store.getState().activeSlideId;
-    const entry = session?.getSnapshot().state[stack].at(-1);
+    const entry =
+      active_slide_id === null
+        ? undefined
+        : session
+            ?.getSnapshot()
+            .state.slideHistories[active_slide_id]?.[stack].at(-1);
+    if (active_slide_id === null || entry === undefined)
+      return Promise.resolve({ persisted: false });
+    return runCommand((state) => command(state, { slideId: active_slide_id }));
+  }
+  function runPresentationHistoryCommand(
+    command:
+      | EditorCapability["undoPresentation"]
+      | EditorCapability["redoPresentation"],
+    stack: "undoStack" | "redoStack",
+  ): Promise<EditorCommandRunResult> {
+    scheduler_ref.current?.flushAll();
     if (
-      active_slide_id === null ||
-      entry === undefined ||
-      !isHistoryEntryApplicableToSlide(entry, active_slide_id)
+      session_ref.current
+        ?.getSnapshot()
+        .state.presentationHistory[stack].at(-1) === undefined
     )
       return Promise.resolve({ persisted: false });
     return runCommand(command);
@@ -434,16 +449,18 @@ export function EditorController({
         ),
       )
       .find((slide) => slide.id === active_slide_id) ?? null;
-  const undo_entry = status.state.undoStack.at(-1);
-  const redo_entry = status.state.redoStack.at(-1);
+  const slide_history =
+    active_slide_id === null
+      ? undefined
+      : status.state.slideHistories[active_slide_id];
   const can_undo =
-    active_slide_id !== null &&
-    undo_entry !== undefined &&
-    isHistoryEntryApplicableToSlide(undo_entry, active_slide_id);
+    active_slide_id !== null && slide_history?.undoStack.at(-1) !== undefined;
   const can_redo =
-    active_slide_id !== null &&
-    redo_entry !== undefined &&
-    isHistoryEntryApplicableToSlide(redo_entry, active_slide_id);
+    active_slide_id !== null && slide_history?.redoStack.at(-1) !== undefined;
+  const can_undo_presentation =
+    status.state.presentationHistory.undoStack.at(-1) !== undefined;
+  const can_redo_presentation =
+    status.state.presentationHistory.redoStack.at(-1) !== undefined;
 
   return (
     <EditorShell
@@ -455,6 +472,8 @@ export function EditorController({
       canvas={status.state.canvas}
       canRedo={can_redo}
       canUndo={can_undo}
+      canRedoPresentation={can_redo_presentation}
+      canUndoPresentation={can_undo_presentation}
       selection={selection}
       labels={{
         addSlide: t("addSlide"),
@@ -647,15 +666,21 @@ export function EditorController({
         void importImages(files, active_slide_id);
       }}
       onRedo={() => {
-        return runHistoryCommand(capability.redo, "redoStack");
+        return runSlideHistoryCommand(capability.redoSlide, "redoStack");
       }}
       onSelectSlide={(slide_id) => {
         store.getState().setActiveSlideId(slide_id);
         store.getState().setSelection({ kind: "none" });
       }}
       onUndo={() => {
-        return runHistoryCommand(capability.undo, "undoStack");
+        return runSlideHistoryCommand(capability.undoSlide, "undoStack");
       }}
+      onUndoPresentation={() =>
+        runPresentationHistoryCommand(capability.undoPresentation, "undoStack")
+      }
+      onRedoPresentation={() =>
+        runPresentationHistoryCommand(capability.redoPresentation, "redoStack")
+      }
       onSelectElement={(element_id, additive = false) => {
         const element = getActiveSlide(
           status.state.slides,
