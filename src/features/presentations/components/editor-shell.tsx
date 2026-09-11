@@ -32,9 +32,6 @@ type EditorShellProps = {
   readonly canvas: { readonly width: number; readonly height: number };
   readonly canRedo: boolean;
   readonly canUndo: boolean;
-  readonly isPending: boolean;
-  readonly imageError: string | null;
-  readonly persistenceError: string | null;
   readonly selection: EditorSelection;
   readonly imageUrls?: Readonly<Record<string, string>>;
   readonly labels: {
@@ -46,6 +43,7 @@ type EditorShellProps = {
     readonly shapeCircle: string;
     readonly shapeLine: string;
     readonly alignment: string;
+    readonly layoutAlign: string;
     readonly alignmentCenter: string;
     readonly alignmentLeft: string;
     readonly alignmentRight: string;
@@ -65,10 +63,12 @@ type EditorShellProps = {
     readonly textRoleParagraph: string;
     readonly presentation: string;
     readonly properties: string;
+    readonly actions: string;
+    readonly appearance: string;
+    readonly layers: string;
+    readonly transform: string;
+    readonly shapeType: string;
     readonly redo: string;
-    readonly saveError: string;
-    readonly saved: string;
-    readonly saving: string;
     readonly slide: string;
     readonly slideBackground: string;
     readonly slideTransition: string;
@@ -102,17 +102,30 @@ type EditorShellProps = {
     readonly moveForward: string;
     readonly moveBackward: string;
     readonly deleteElement: string;
+    readonly deleteSlide: string;
+    readonly duplicateSlide: string;
     readonly resizeElement: string;
     readonly resizeHandleLabels: Readonly<Record<ResizeHandle, string>>;
     readonly centerHorizontally: string;
     readonly centerVertically: string;
+    readonly alignLeft: string;
+    readonly alignRight: string;
+    readonly alignTop: string;
+    readonly alignBottom: string;
+    readonly bringToFront: string;
+    readonly sendToBack: string;
   };
   readonly onCreateSlide: () => void;
+  readonly onDuplicateSlide: () => void;
+  readonly onDeleteSlide: () => void;
+  readonly onReorderSlide: (
+    slide_id: string,
+    after_slide_id: string | null,
+  ) => void;
   readonly onCreateText: () => void;
   readonly onCreateShape: (shape_type: "rectangle" | "circle" | "line") => void;
   readonly onUploadImages: (files: readonly File[]) => void;
   readonly onRedo: () => void;
-  readonly onRetryPersistence: () => void;
   readonly onSelectSlide: (slide_id: string) => void;
   readonly onSelectElement: (element_id: string, additive?: boolean) => void;
   readonly onSelectElements: (
@@ -145,10 +158,12 @@ type EditorShellProps = {
     patch: ElementPatch,
   ) => void;
   readonly onBringForward: (element_id: string) => void;
+  readonly onBringToFront: (element_id: string) => void;
   readonly onSendBackward: (element_id: string) => void;
-  readonly onCenterElement: (
+  readonly onSendToBack: (element_id: string) => void;
+  readonly onAlignElement: (
     element_id: string,
-    axis: "horizontal" | "vertical",
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
   ) => void;
   readonly onDeleteElement: (element_id: string) => void;
   readonly onBackgroundChange: (background: SlideBackground) => void;
@@ -173,18 +188,17 @@ export function EditorShell({
   canvas,
   canRedo,
   canUndo,
-  isPending,
-  imageError,
-  persistenceError,
   selection,
   imageUrls = {},
   labels,
   onCreateSlide,
+  onDuplicateSlide: on_duplicate_slide,
+  onDeleteSlide: on_delete_slide,
+  onReorderSlide: on_reorder_slide,
   onCreateText,
   onCreateShape,
   onUploadImages,
   onRedo,
-  onRetryPersistence,
   onSelectSlide,
   onSelectElement,
   onSelectElements,
@@ -200,8 +214,10 @@ export function EditorShell({
   onElementPatch,
   onElementPatchCommit,
   onBringForward,
+  onBringToFront: on_bring_to_front,
   onSendBackward,
-  onCenterElement,
+  onSendToBack: on_send_to_back,
+  onAlignElement: on_align_element,
   onDeleteElement,
   onBackgroundChange,
   onBackgroundCommit,
@@ -227,6 +243,7 @@ export function EditorShell({
             labels={labels}
             slides={slides}
             onCreateSlide={onCreateSlide}
+            onReorderSlide={on_reorder_slide}
             onSelectSlide={onSelectSlide}
           />
         </Sidebar>
@@ -237,19 +254,12 @@ export function EditorShell({
             addTextLabel={labels.addText}
             canRedo={canRedo}
             canUndo={canUndo}
-            isPending={isPending}
-            imageError={imageError}
-            persistenceError={persistenceError}
             redoLabel={labels.redo}
-            saveErrorLabel={labels.saveError}
-            savedLabel={labels.saved}
-            savingLabel={labels.saving}
             title={title}
             undoLabel={labels.undo}
             onCreateShape={onCreateShape}
             onCreateText={onCreateText}
             onRedo={onRedo}
-            onRetryPersistence={onRetryPersistence}
             onUploadImages={onUploadImages}
             onUndo={onUndo}
           />
@@ -297,13 +307,17 @@ export function EditorShell({
             onElementPatch={onElementPatch}
             onElementPatchCommit={onElementPatchCommit}
             onBringForward={onBringForward}
+            onBringToFront={on_bring_to_front}
             onSendBackward={onSendBackward}
-            onCenter={onCenterElement}
+            onSendToBack={on_send_to_back}
+            onAlign={on_align_element}
             onDeleteElement={onDeleteElement}
             onBackgroundChange={onBackgroundChange}
             onBackgroundCommit={onBackgroundCommit}
             onTransitionChange={onTransitionChange}
             onTransitionCommit={onTransitionCommit}
+            onDuplicateSlide={on_duplicate_slide}
+            onDeleteSlide={on_delete_slide}
           />
         </Sidebar>
       </SidebarProvider>

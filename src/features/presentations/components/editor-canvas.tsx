@@ -1,5 +1,6 @@
 "use client";
 
+import { PRESENTATION_CANVAS } from "../core/types";
 import type { DragCommitResult, ResizeHandle } from "./editor-drag";
 import type { EditorSlide } from "./editor-model";
 import { SlideRenderer } from "./slide-renderer";
@@ -63,7 +64,7 @@ export function EditorCanvas({
 }: EditorCanvasProps) {
   return (
     <div
-      className="relative group shrink-0 overflow-visible outline bg-background data-[selected=true]:outline-blue-500"
+      className="relative group overflow-visible shrink-0 data-[selected=true]:outline dark:data-[selected=true]:outline-2 bg-background data-[selected=true]:outline-blue-500"
       data-selected={activeSlide !== null && selectionIds.length === 0}
       style={{
         width: "100%",
@@ -74,12 +75,20 @@ export function EditorCanvas({
       {activeSlide === null ? null : (
         <button
           aria-pressed={selectionIds.length === 0}
-          className="cursor-pointer absolute bottom-full left-0 z-20 mb-2 flex items-center gap-4 rounded-md bg-white p-1 px-2 text-xs! text-foreground group-data-[selected=true]:bg-blue-500 outline group-data-[selected=true]:outline-none group-data-[selected=true]:text-white"
+          className="cursor-pointer absolute bottom-full left-0 mb-2 flex items-center gap-4 rounded-md bg-white dark:bg-sidebar dark:group-data-[selected=true]:bg-blue-500 dark:outline-none! p-1 px-2 text-xs! text-foreground group-data-[selected=true]:bg-blue-500 group-data-[selected=true]:outline group-data-[selected=true]:outline-none select-none group-data-[selected=true]:text-white"
           type="button"
           onClick={onDeselectElement}
         >
-          <span>{activeSlide.ariaLabel}</span>{" "}
+          <span>{activeSlide.ariaLabel}</span>
         </button>
+      )}
+      {activeSlide === null ? null : (
+        <span className="absolute bottom-full font-mono! right-0 text-muted-foreground/60 mb-2 text-xs">
+          {PRESENTATION_CANVAS.height}{" "}
+          <span className="text-muted-foreground/50">x</span>{" "}
+          {PRESENTATION_CANVAS.width}{" "}
+          <span className="text-muted-foreground/50">px</span>
+        </span>
       )}
       <SlideRenderer
         canvas={canvas}

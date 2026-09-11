@@ -226,6 +226,8 @@ export type PresentationOperation = {
     | "reorder-element"
     | "bring-forward"
     | "send-backward"
+    | "bring-to-front"
+    | "send-to-back"
     | "move-element"
     | "resize-element"
     | "replace-asset"
@@ -358,6 +360,14 @@ export type BringForwardInput = CommandMetadata & {
   elementId: string;
 };
 export type SendBackwardInput = CommandMetadata & {
+  slideId: string;
+  elementId: string;
+};
+export type BringToFrontInput = CommandMetadata & {
+  slideId: string;
+  elementId: string;
+};
+export type SendToBackInput = CommandMetadata & {
   slideId: string;
   elementId: string;
 };

@@ -13,10 +13,7 @@ import type {
   EditorCapability,
   ImageImportInput,
 } from "@/features/presentations/application/editor-capability";
-import type {
-  EditorSaveStatus,
-  EditorSession,
-} from "@/features/presentations/application/editor-session";
+import type { EditorSession } from "@/features/presentations/application/editor-session";
 import type {
   ElementPatch,
   ElementSize,
@@ -79,11 +76,9 @@ export function EditorController({
     snapshot === null || effective_state === null
       ? load_status
       : { kind: "ready", state: effective_state };
-  const save_status: EditorSaveStatus = snapshot?.saveStatus ?? "durable";
   const [image_urls, set_image_urls] = useState<
     Readonly<Record<string, string>>
   >({});
-  const [image_error, set_image_error] = useState<string | null>(null);
   const image_import_pending_ref = useRef(false);
   const image_url_entries_ref = useRef(new Map<string, ImageUrlEntry>());
   const image_load_generation_ref = useRef(0);
@@ -196,6 +191,14 @@ export function EditorController({
     )
       return Promise.resolve({ persisted: false });
     return runCommand(command);
+  }
+
+  function runSlideCommand(
+    command: (state: PresentationState) => ReturnType<EditorCapability["undo"]>,
+    on_success?: (state: PresentationState) => void,
+  ): Promise<EditorCommandRunResult> {
+    scheduler_ref.current?.flushAll();
+    return runCommand(command, false, on_success);
   }
 
   function dispatchEditorIntent(draft: EditorIntentDraft): boolean {
@@ -452,19 +455,18 @@ export function EditorController({
       canvas={status.state.canvas}
       canRedo={can_redo}
       canUndo={can_undo}
-      isPending={save_status === "pending"}
-      imageError={image_error}
-      persistenceError={save_status === "failed" ? t("persistenceError") : null}
       selection={selection}
       labels={{
         addSlide: t("addSlide"),
         addText: t("addText"),
         addImage: t("addImage"),
         addShape: t("addShape"),
+        shapeType: t("shapeType"),
         shapeRectangle: t("shapeRectangle"),
         shapeCircle: t("shapeCircle"),
         shapeLine: t("shapeLine"),
         alignment: t("textAlign"),
+        layoutAlign: t("layoutAlign"),
         alignmentCenter: t("alignmentCenter"),
         alignmentLeft: t("alignmentLeft"),
         alignmentRight: t("alignmentRight"),
@@ -483,7 +485,11 @@ export function EditorController({
         textRoleH3: t("textRoleH3"),
         textRoleParagraph: t("textRoleParagraph"),
         presentation: t("presentation"),
-        properties: t("layerOrder"),
+        properties: t("properties"),
+        actions: t("actions"),
+        appearance: t("appearance"),
+        layers: t("layers"),
+        transform: t("transform"),
         redo: t("redo"),
         resizeElement: t("resizeElement"),
         resizeHandleLabels: {
@@ -496,9 +502,6 @@ export function EditorController({
           west: t("resizeWest"),
           "north-west": t("resizeNorthWest"),
         },
-        saveError: t("saveError"),
-        saved: t("saved"),
-        saving: t("saving"),
         slide: t("slide"),
         slideBackground: t("slideBackground"),
         slideTransition: t("slideTransition"),
@@ -532,11 +535,66 @@ export function EditorController({
         moveForward: t("moveForward"),
         moveBackward: t("moveBackward"),
         deleteElement: t("deleteElement"),
+        deleteSlide: t("deleteSlide"),
+        duplicateSlide: t("duplicateSlide"),
         centerHorizontally: t("centerHorizontally"),
         centerVertically: t("centerVertically"),
+        alignLeft: t("alignLeft"),
+        alignRight: t("alignRight"),
+        alignTop: t("alignTop"),
+        alignBottom: t("alignBottom"),
+        bringToFront: t("bringToFront"),
+        sendToBack: t("sendToBack"),
       }}
-      onCreateSlide={() => runCommand(capability.createSlide, true)}
-      onRetryPersistence={() => session_ref.current?.retry()}
+      onCreateSlide={() => {
+        scheduler_ref.current?.flushAll();
+        return runCommand(capability.createSlide, true);
+      }}
+      onDuplicateSlide={() => {
+        if (active_slide_id === null) return;
+        let duplicate_index = -1;
+        void runSlideCommand(
+          (state) => {
+            duplicate_index = state.slides.findIndex(
+              (slide) => slide.id === active_slide_id,
+            );
+            return capability.duplicateSlide(state, {
+              slideId: active_slide_id,
+            });
+          },
+          (next_state) => {
+            const duplicated_slide = next_state.slides[duplicate_index + 1];
+            if (duplicated_slide === undefined) return;
+            store.getState().setActiveSlideId(duplicated_slide.id);
+            store.getState().setSelection({ kind: "none" });
+          },
+        );
+      }}
+      onDeleteSlide={() => {
+        if (active_slide_id === null) return;
+        let fallback_slide_id: string | null = null;
+        void runSlideCommand(
+          (state) => {
+            fallback_slide_id = getDeletedSlideFallbackId(
+              state.slides,
+              active_slide_id,
+            );
+            return capability.deleteSlide(state, { slideId: active_slide_id });
+          },
+          () => {
+            store.getState().setActiveSlideId(fallback_slide_id);
+            store.getState().setSelection({ kind: "none" });
+          },
+        );
+      }}
+      onReorderSlide={(slide_id, after_slide_id) => {
+        void runSlideCommand((state) =>
+          capability.reorderSlide(state, {
+            slideId: slide_id,
+            afterSlideId: after_slide_id,
+          }),
+        );
+      }}
       onCreateText={() =>
         active_slide_id === null
           ? undefined
@@ -757,6 +815,15 @@ export function EditorController({
           }),
         );
       }}
+      onBringToFront={(element_id) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.bringToFront(state, {
+            slideId: active_slide_id,
+            elementId: element_id,
+          }),
+        );
+      }}
       onSendBackward={(element_id) => {
         if (active_slide_id === null) return;
         void runCommand((state) =>
@@ -766,13 +833,22 @@ export function EditorController({
           }),
         );
       }}
-      onCenterElement={(element_id, axis) => {
+      onSendToBack={(element_id) => {
         if (active_slide_id === null) return;
         void runCommand((state) =>
-          capability.centerElement(state, {
+          capability.sendToBack(state, {
             slideId: active_slide_id,
             elementId: element_id,
-            axis,
+          }),
+        );
+      }}
+      onAlignElement={(element_id, alignment) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.alignElement(state, {
+            slideId: active_slide_id,
+            elementId: element_id,
+            alignment,
           }),
         );
       }}
@@ -831,14 +907,11 @@ export function EditorController({
     slide_id: string,
   ): Promise<void> {
     image_import_pending_ref.current = true;
-    set_image_error(null);
     if (files.length > MAX_IMAGE_IMPORT_COUNT) {
-      set_image_error(t("imageLimitError", { count: MAX_IMAGE_IMPORT_COUNT }));
       image_import_pending_ref.current = false;
       return;
     }
     if (files.some((file) => !file.type.startsWith("image/"))) {
-      set_image_error(t("imageTypeError"));
       image_import_pending_ref.current = false;
       return;
     }
@@ -851,7 +924,6 @@ export function EditorController({
         })),
       );
     } catch {
-      set_image_error(t("imageDecodeError"));
       image_import_pending_ref.current = false;
       return;
     }
@@ -890,6 +962,15 @@ function getActiveSlideId(
   return slides.some((slide) => slide.id === active_slide_id)
     ? active_slide_id
     : (slides[0]?.id ?? null);
+}
+
+function getDeletedSlideFallbackId(
+  slides: readonly Slide[],
+  slide_id: string,
+): string | null {
+  const deleted_index = slides.findIndex((slide) => slide.id === slide_id);
+  if (deleted_index === -1) return null;
+  return slides[deleted_index - 1]?.id ?? slides[deleted_index + 1]?.id ?? null;
 }
 
 function mergeElementPatches(

@@ -22,6 +22,7 @@ type PropertiesSidebarProps = {
   readonly selection: EditorSelection;
   readonly labels: {
     readonly alignment: string;
+    readonly layoutAlign: string;
     readonly alignmentCenter: string;
     readonly alignmentLeft: string;
     readonly alignmentRight: string;
@@ -36,12 +37,21 @@ type PropertiesSidebarProps = {
     readonly textRoleH3: string;
     readonly textRoleParagraph: string;
     readonly properties: string;
+    readonly actions: string;
+    readonly appearance: string;
+    readonly layers: string;
+    readonly transform: string;
+    readonly shapeType: string;
     readonly role: string;
     readonly position: string;
     readonly x: string;
     readonly y: string;
     readonly centerHorizontally: string;
     readonly centerVertically: string;
+    readonly alignLeft: string;
+    readonly alignRight: string;
+    readonly alignTop: string;
+    readonly alignBottom: string;
     readonly size: string;
     readonly rotation: string;
     readonly opacity: string;
@@ -49,7 +59,11 @@ type PropertiesSidebarProps = {
     readonly height: string;
     readonly moveForward: string;
     readonly moveBackward: string;
+    readonly bringToFront: string;
+    readonly sendToBack: string;
     readonly deleteElement: string;
+    readonly deleteSlide: string;
+    readonly duplicateSlide: string;
     readonly slideBackground: string;
     readonly slideTransition: string;
     readonly transitionDuration: string;
@@ -74,12 +88,16 @@ type PropertiesSidebarProps = {
     patch: ElementPatch,
   ) => void;
   readonly onBringForward: (element_id: string) => void;
+  readonly onBringToFront: (element_id: string) => void;
   readonly onSendBackward: (element_id: string) => void;
-  readonly onCenter: (
+  readonly onSendToBack: (element_id: string) => void;
+  readonly onAlign: (
     element_id: string,
-    axis: "horizontal" | "vertical",
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
   ) => void;
   readonly onDeleteElement: (element_id: string) => void;
+  readonly onDuplicateSlide: () => void;
+  readonly onDeleteSlide: () => void;
   readonly onBackgroundChange: (background: SlideBackground) => void;
   readonly onBackgroundCommit: (background: SlideBackground) => void;
   readonly onTransitionChange: (
@@ -110,9 +128,13 @@ export function PropertiesSidebar({
   onElementPatch,
   onElementPatchCommit,
   onBringForward,
+  onBringToFront: on_bring_to_front,
   onSendBackward,
-  onCenter,
+  onSendToBack: on_send_to_back,
+  onAlign: on_align,
   onDeleteElement,
+  onDuplicateSlide: on_duplicate_slide,
+  onDeleteSlide: on_delete_slide,
   onBackgroundChange,
   onBackgroundCommit,
   onTransitionChange,
@@ -136,6 +158,8 @@ export function PropertiesSidebar({
           onBackgroundCommit={onBackgroundCommit}
           onTransitionChange={onTransitionChange}
           onTransitionCommit={onTransitionCommit}
+          onDuplicateSlide={on_duplicate_slide}
+          onDeleteSlide={on_delete_slide}
         />
       ) : null}
       {selection.kind === "text" &&
@@ -150,7 +174,7 @@ export function PropertiesSidebar({
           elementIndex={selectedElementIndex}
           onContentChange={onTextContentChange}
           onContentCommit={onTextContentCommit}
-          onCenter={(axis) => onCenter(selectedText.id, axis)}
+          onAlign={(alignment) => on_align(selectedText.id, alignment)}
           onPositionChange={(position) =>
             onElementPatch(selectedText.id, { position })
           }
@@ -163,7 +187,9 @@ export function PropertiesSidebar({
             onElementPatchCommit(selectedText.id, patch)
           }
           onBringForward={() => onBringForward(selectedText.id)}
+          onBringToFront={() => on_bring_to_front(selectedText.id)}
           onSendBackward={() => onSendBackward(selectedText.id)}
+          onSendToBack={() => on_send_to_back(selectedText.id)}
         />
       ) : null}
       {selectedElement !== null &&
@@ -180,8 +206,10 @@ export function PropertiesSidebar({
             onElementPatchCommit(selectedElement.id, patch)
           }
           onBringForward={() => onBringForward(selectedElement.id)}
+          onBringToFront={() => on_bring_to_front(selectedElement.id)}
           onSendBackward={() => onSendBackward(selectedElement.id)}
-          onCenter={(axis) => onCenter(selectedElement.id, axis)}
+          onSendToBack={() => on_send_to_back(selectedElement.id)}
+          onAlign={(alignment) => on_align(selectedElement.id, alignment)}
         />
       ) : null}
       {selection.kind === "multiple" && activeSlide !== null ? (

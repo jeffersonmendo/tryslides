@@ -12,19 +12,12 @@ type EditorHeaderProps = {
   readonly title: string;
   readonly canRedo: boolean;
   readonly canUndo: boolean;
-  readonly isPending: boolean;
-  readonly imageError: string | null;
-  readonly persistenceError: string | null;
   readonly addImageLabel: string;
   readonly addShapeLabel: string;
   readonly addTextLabel: string;
   readonly redoLabel: string;
-  readonly saveErrorLabel: string;
-  readonly savedLabel: string;
-  readonly savingLabel: string;
   readonly undoLabel: string;
   readonly onRedo: () => void;
-  readonly onRetryPersistence: () => void;
   readonly onCreateShape: (shape_type: "rectangle" | "circle" | "line") => void;
   readonly onCreateText: () => void;
   readonly onUploadImages: (files: readonly File[]) => void;
@@ -35,27 +28,18 @@ export function EditorHeader({
   title,
   canRedo,
   canUndo,
-  isPending,
-  imageError,
-  persistenceError,
   addImageLabel,
   addShapeLabel,
   addTextLabel,
   redoLabel,
-  saveErrorLabel,
-  savedLabel,
-  savingLabel,
   undoLabel,
   onRedo,
-  onRetryPersistence,
   onCreateShape,
   onCreateText,
   onUploadImages,
   onUndo,
 }: EditorHeaderProps) {
   const image_input_ref = useRef<HTMLInputElement>(null);
-  const save_state = persistenceError ?? (isPending ? savingLabel : savedLabel);
-
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const image_files = Array.from(event.target.files ?? []);
     if (image_files.length > 0) onUploadImages(image_files);

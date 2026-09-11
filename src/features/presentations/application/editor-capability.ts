@@ -11,19 +11,24 @@ import type {
 } from "@/features/presentations/core/presentation-core";
 import {
   bringForward,
+  bringToFront,
   configureAnimation,
   configureTransition,
   createElement,
   createElements,
   createSlide,
   deleteElement,
+  deleteSlide,
+  duplicateSlide,
   editElement,
   editElements,
   editSlide,
   moveElement,
   PRESENTATION_CANVAS,
+  reorderSlide,
   resizeElement,
   sendBackward,
+  sendToBack,
 } from "@/features/presentations/core/presentation-core";
 
 import { loadLocalAsset } from "./local-assets";
@@ -44,6 +49,18 @@ import {
 export type EditorCapability = {
   loadPresentation(presentation_id: string): Promise<LoadPresentationResult>;
   createSlide(state: PresentationState): PreparedPresentationCommandResult;
+  duplicateSlide(
+    state: PresentationState,
+    input: { readonly slideId: string },
+  ): PreparedPresentationCommandResult;
+  deleteSlide(
+    state: PresentationState,
+    input: { readonly slideId: string },
+  ): PreparedPresentationCommandResult;
+  reorderSlide(
+    state: PresentationState,
+    input: { readonly slideId: string; readonly afterSlideId: string | null },
+  ): PreparedPresentationCommandResult;
   createTextElement(
     state: PresentationState,
     input: { readonly slideId: string; readonly content: string },
@@ -123,12 +140,26 @@ export type EditorCapability = {
     state: PresentationState,
     input: { readonly slideId: string; readonly elementId: string },
   ): PreparedPresentationCommandResult;
-  centerElement(
+  bringToFront(
+    state: PresentationState,
+    input: { readonly slideId: string; readonly elementId: string },
+  ): PreparedPresentationCommandResult;
+  sendToBack(
+    state: PresentationState,
+    input: { readonly slideId: string; readonly elementId: string },
+  ): PreparedPresentationCommandResult;
+  alignElement(
     state: PresentationState,
     input: {
       readonly slideId: string;
       readonly elementId: string;
-      readonly axis: "horizontal" | "vertical";
+      readonly alignment:
+        | "left"
+        | "center"
+        | "right"
+        | "top"
+        | "middle"
+        | "bottom";
     },
   ): PreparedPresentationCommandResult;
   editSlideBackground(
@@ -176,6 +207,31 @@ export function createEditorCapability(
           id: commands.createSlideId(),
           ...input,
         }),
+      ),
+    duplicateSlide: (state, input) =>
+      commands.prepare(state, (current_state, command_input) => {
+        const slide = current_state.slides.find(
+          (current) => current.id === input.slideId,
+        );
+        return duplicateSlide(current_state, {
+          ...input,
+          id: commands.createSlideId(),
+          elementIds: Object.fromEntries(
+            (slide?.elements ?? []).map((element) => [
+              element.id,
+              commands.createElementId(),
+            ]),
+          ),
+          ...command_input,
+        });
+      }),
+    deleteSlide: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        deleteSlide(current_state, { ...input, ...command_input }),
+      ),
+    reorderSlide: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        reorderSlide(current_state, { ...input, ...command_input }),
       ),
     createTextElement: (state, text_input) =>
       commands.prepare(state, (current_state, command_input) =>
@@ -307,7 +363,15 @@ export function createEditorCapability(
       commands.prepare(state, (current_state, command_input) =>
         sendBackward(current_state, { ...input, ...command_input }),
       ),
-    centerElement: (state, input) =>
+    bringToFront: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        bringToFront(current_state, { ...input, ...command_input }),
+      ),
+    sendToBack: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        sendToBack(current_state, { ...input, ...command_input }),
+      ),
+    alignElement: (state, input) =>
       commands.prepare(state, (current_state, command_input) => {
         const element = current_state.slides
           .find((slide) => slide.id === input.slideId)
@@ -321,16 +385,12 @@ export function createEditorCapability(
         return editElement(current_state, {
           ...input,
           patch: {
-            position:
-              input.axis === "horizontal"
-                ? {
-                    x: (current_state.canvas.width - element.size.width) / 2,
-                    y: element.position.y,
-                  }
-                : {
-                    x: element.position.x,
-                    y: (current_state.canvas.height - element.size.height) / 2,
-                  },
+            position: getAlignedElementPosition(
+              element.position,
+              element.size,
+              current_state.canvas,
+              input.alignment,
+            ),
           },
           ...command_input,
         });
@@ -356,6 +416,28 @@ export function createEditorCapability(
     undo: (state) => commands.prepareUndo(state),
     redo: (state) => commands.prepareRedo(state),
   };
+}
+
+function getAlignedElementPosition(
+  position: ElementPosition,
+  size: ElementSize,
+  canvas: { readonly width: number; readonly height: number },
+  alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
+): ElementPosition {
+  switch (alignment) {
+    case "left":
+      return { x: 0, y: position.y };
+    case "center":
+      return { x: (canvas.width - size.width) / 2, y: position.y };
+    case "right":
+      return { x: canvas.width - size.width, y: position.y };
+    case "top":
+      return { x: position.x, y: 0 };
+    case "middle":
+      return { x: position.x, y: (canvas.height - size.height) / 2 };
+    case "bottom":
+      return { x: position.x, y: canvas.height - size.height };
+  }
 }
 
 const IMAGE_MAX_WIDTH = PRESENTATION_CANVAS.width * 0.2;

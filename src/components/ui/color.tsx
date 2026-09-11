@@ -1,5 +1,6 @@
 "use client";
 
+import { IconHash } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Button as AriaButton,
@@ -180,7 +181,7 @@ function ColorControl({
   const normalized_value = normalizeColor(value) ?? "#000000";
   const normalized_accepted_value =
     normalizeColor(acceptedValue) ?? normalized_value;
-  const [draft, setDraft] = useState(normalized_value);
+  const [draft, setDraft] = useState(toDisplayColor(normalized_value));
   const is_focused_ref = useRef(false);
   const latest_accepted_value_ref = useRef(normalized_accepted_value);
   const latest_draft_ref = useRef(normalized_value);
@@ -192,7 +193,7 @@ function ColorControl({
   useEffect(() => {
     if (!is_focused_ref.current) {
       latest_draft_ref.current = normalized_value;
-      setDraft(normalized_value);
+      setDraft(toDisplayColor(normalized_value));
     }
   }, [normalized_value]);
 
@@ -200,7 +201,7 @@ function ColorControl({
     const normalized = normalizeColor(next);
     if (normalized === null) return;
     latest_draft_ref.current = normalized;
-    setDraft(normalized);
+    setDraft(toDisplayColor(normalized));
     onChange(normalized);
   }
 
@@ -221,6 +222,9 @@ function ColorControl({
       onChange={(color) => preview(color.toString("hex"))}
     >
       <InputGroup>
+        <InputGroupAddon>
+          <IconHash aria-hidden="true" stroke={2} />
+        </InputGroupAddon>
         <InputGroupInput
           id={id}
           aria-label={label}
@@ -230,8 +234,7 @@ function ColorControl({
             commit(draft);
           }}
           onChange={(event) => {
-            const next = event.target.value;
-            latest_draft_ref.current = next;
+            const next = toDisplayColor(event.target.value);
             setDraft(next);
             preview(next);
           }}
@@ -246,7 +249,7 @@ function ColorControl({
             if (event.key === "Escape") {
               event.preventDefault();
               latest_draft_ref.current = normalized_value;
-              setDraft(normalized_value);
+              setDraft(toDisplayColor(normalized_value));
             }
           }}
         />
@@ -303,7 +306,14 @@ function ColorControl({
 }
 
 function normalizeColor(value: string): string | null {
-  return /^#[\da-f]{6}$/i.test(value) ? value.toUpperCase() : null;
+  const hexadecimal_value = value.startsWith("#") ? value.slice(1) : value;
+  return /^[\da-f]{6}$/i.test(hexadecimal_value)
+    ? `#${hexadecimal_value.toUpperCase()}`
+    : null;
+}
+
+function toDisplayColor(value: string): string {
+  return value.startsWith("#") ? value.slice(1) : value;
 }
 
 export type { ColorWheelProps };

@@ -12,6 +12,7 @@ const labels = {
   alignmentCenter: "Center",
   alignmentLeft: "Left",
   alignmentRight: "Right",
+  layoutAlign: "Layout alignment",
   color: "Color",
   content: "Content",
   fontSize: "Font size",
@@ -28,12 +29,21 @@ const labels = {
   y: "Y",
   centerHorizontally: "Center horizontally",
   centerVertically: "Center vertically",
+  alignLeft: "Align left",
+  alignRight: "Align right",
+  alignTop: "Align top",
+  alignBottom: "Align bottom",
   size: "Size",
   width: "Width",
   height: "Height",
   properties: "Properties",
+  appearance: "Appearance",
+  layers: "Layers",
+  transform: "Transform",
   moveForward: "Move forward",
   moveBackward: "Move backward",
+  bringToFront: "Bring to front",
+  sendToBack: "Send to back",
   rotation: "Rotation",
   opacity: "Opacity",
 };
@@ -89,13 +99,15 @@ function NativeColorHarness({ commands }: { readonly commands: string[] }) {
       labels={labels}
       text={text}
       onBringForward={() => undefined}
-      onCenter={() => undefined}
+      onBringToFront={() => undefined}
+      onAlign={() => undefined}
       onContentChange={() => undefined}
       onContentCommit={() => undefined}
       onPatch={() => undefined}
       onPatchCommit={() => undefined}
       onPositionChange={() => undefined}
       onSendBackward={() => undefined}
+      onSendToBack={() => undefined}
       onSizeChange={() => undefined}
       onStyleApply={() => undefined}
       onStyleChange={(style) => {

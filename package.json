@@ -31,6 +31,7 @@
     "next": "16.3.4",
     "next-intl": "^4.14.2",
     "next-themes": "^0.4.6",
+    "nuqs": "^2.10.1",
     "react": "19.2.8",
     "react-aria-components": "^1.21.1",
     "react-dom": "19.2.8",

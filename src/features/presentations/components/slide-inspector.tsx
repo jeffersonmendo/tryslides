@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { ColorControl } from "@/components/ui/color";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
@@ -32,6 +33,8 @@ type SlideInspectorProps = {
     readonly transitionNone: string;
     readonly transitionScale: string;
     readonly transitionSlide: string;
+    readonly deleteSlide: string;
+    readonly duplicateSlide: string;
   };
   readonly onBackgroundChange: (background: SlideBackground) => void;
   readonly onBackgroundCommit: (background: SlideBackground) => void;
@@ -43,6 +46,8 @@ type SlideInspectorProps = {
     type: TransitionType,
     duration?: number,
   ) => void;
+  readonly onDuplicateSlide: () => void;
+  readonly onDeleteSlide: () => void;
 };
 
 export function SlideInspector({
@@ -53,6 +58,8 @@ export function SlideInspector({
   onBackgroundCommit,
   onTransitionChange,
   onTransitionCommit,
+  onDuplicateSlide: on_duplicate_slide,
+  onDeleteSlide: on_delete_slide,
 }: SlideInspectorProps) {
   return (
     <FieldGroup>
@@ -136,6 +143,22 @@ export function SlideInspector({
           />
         </Field>
       )}
+      <div className="flex gap-2">
+        <Button
+          className="flex-1"
+          variant="secondary"
+          onClick={on_duplicate_slide}
+        >
+          {labels.duplicateSlide}
+        </Button>
+        <Button
+          className="flex-1"
+          variant="destructive"
+          onClick={on_delete_slide}
+        >
+          {labels.deleteSlide}
+        </Button>
+      </div>
     </FieldGroup>
   );
 }

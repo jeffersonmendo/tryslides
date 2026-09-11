@@ -31,7 +31,9 @@
     "addText": "Añadir texto",
     "addImage": "Añadir imagen",
     "addShape": "Añadir forma",
+    "shapeType": "Tipo de forma",
     "alignment": "Alineación",
+    "layoutAlign": "Alineación de diseño",
     "alignmentCenter": "Centro",
     "alignmentLeft": "Izquierda",
     "alignmentRight": "Derecha",
@@ -60,6 +62,10 @@
     "persistenceError": "No se pudo guardar tu cambio localmente. Inténtalo de nuevo.",
     "presentation": "Presentación",
     "properties": "Propiedades",
+    "transform": "Transformación",
+    "appearance": "Apariencia",
+    "layers": "Capas",
+    "actions": "Acciones",
     "redo": "Rehacer",
     "resizeElement": "Cambiar tamaño del elemento",
     "resizeNorth": "parte superior",
@@ -117,7 +123,15 @@
     "moveForward": "Mover adelante",
     "moveBackward": "Mover atrás",
     "deleteElement": "Eliminar elemento",
+    "deleteSlide": "Eliminar",
+    "duplicateSlide": "Duplicar",
     "centerHorizontally": "Centrar horizontalmente",
-    "centerVertically": "Centrar verticalmente"
+    "centerVertically": "Centrar verticalmente",
+    "alignLeft": "Alinear a la izquierda",
+    "alignRight": "Alinear a la derecha",
+    "alignTop": "Alinear arriba",
+    "alignBottom": "Alinear abajo",
+    "bringToFront": "Traer al frente",
+    "sendToBack": "Enviar al fondo"
   }
 }

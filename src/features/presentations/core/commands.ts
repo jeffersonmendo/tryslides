@@ -15,6 +15,7 @@ import {
 } from "./state";
 import type {
   BringForwardInput,
+  BringToFrontInput,
   CommandFailure,
   CommandResult,
   ConfigureAnimationInput,
@@ -49,6 +50,7 @@ import type {
   ReplaceAssetInput,
   ResizeElementInput,
   SendBackwardInput,
+  SendToBackInput,
 } from "./types";
 import { PRESENTATION_CANVAS } from "./types";
 import {
@@ -302,7 +304,8 @@ export function duplicateSlide(
     replacement_ids.some(
       ([source_id, replacement_id]) =>
         !source_element_ids.has(source_id) ||
-        !isValidIdentifier(replacement_id),
+        !isValidIdentifier(replacement_id) ||
+        replacement_id === source_id,
     ) ||
     new Set(replacement_ids.map(([, replacement_id]) => replacement_id))
       .size !== replacement_ids.length
@@ -321,7 +324,7 @@ export function duplicateSlide(
       ...state,
       revision: state.revision + 1,
       slides: [
-        ...state.slides,
+        ...state.slides.slice(0, slide_index + 1),
         {
           id: input.id,
           revision: 1,
@@ -329,6 +332,7 @@ export function duplicateSlide(
           transition: slide.transition,
           elements,
         },
+        ...state.slides.slice(slide_index + 1),
       ],
     },
     [
@@ -707,6 +711,20 @@ export function sendBackward(
 ): CommandResult {
   return moveElementByLayer(state, input, -1, "send-backward");
 }
+/** Moves an element to the topmost layer on its own slide. */
+export function bringToFront(
+  state: PresentationState,
+  input: BringToFrontInput,
+): CommandResult {
+  return moveElementToLayer(state, input, "front", "bring-to-front");
+}
+/** Moves an element to the bottommost layer on its own slide. */
+export function sendToBack(
+  state: PresentationState,
+  input: SendToBackInput,
+): CommandResult {
+  return moveElementToLayer(state, input, "back", "send-to-back");
+}
 export function moveElement(
   state: PresentationState,
   input: MoveElementInput,
@@ -912,6 +930,51 @@ function moveElementByLayer(
   const elements = [...slide.elements];
   elements[element_index] = elements[target_index];
   elements[target_index] = moved_element;
+  return succeed(
+    state,
+    operation_type,
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, slide_index, {
+        ...slide,
+        revision: slide.revision + 1,
+        elements,
+      }),
+    },
+    [
+      slideRevisionChange(slide),
+      {
+        entityType: "element",
+        entityId: element.id,
+        fromRevision: element.revision,
+        toRevision: moved_element.revision,
+      },
+    ],
+  );
+}
+function moveElementToLayer(
+  state: PresentationState,
+  input: BringToFrontInput | SendToBackInput,
+  target_layer: "back" | "front",
+  operation_type: "bring-to-front" | "send-to-back",
+): CommandResult {
+  const slide_index = findSlideIndex(state, input.slideId);
+  if (slide_index === -1) return failure(state, "SLIDE_NOT_FOUND");
+  const slide = state.slides[slide_index];
+  const element_index = findElementIndex(slide, input.elementId);
+  if (element_index === -1) return failure(state, "ELEMENT_NOT_FOUND");
+  const target_index = target_layer === "back" ? 0 : slide.elements.length - 1;
+  if (element_index === target_index) return failure(state, "LAYER_BOUNDARY");
+  const element = slide.elements[element_index];
+  const moved_element = { ...element, revision: element.revision + 1 };
+  const remaining_elements = slide.elements.filter(
+    (_, index) => index !== element_index,
+  );
+  const elements =
+    target_layer === "back"
+      ? [moved_element, ...remaining_elements]
+      : [...remaining_elements, moved_element];
   return succeed(
     state,
     operation_type,

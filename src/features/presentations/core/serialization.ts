@@ -42,6 +42,8 @@ const OPERATION_TYPES = new Set([
   "reorder-element",
   "bring-forward",
   "send-backward",
+  "bring-to-front",
+  "send-to-back",
   "move-element",
   "resize-element",
   "replace-asset",
@@ -326,6 +328,10 @@ function hasOperationTypeCompatibleWithSnapshots(
       return isLayerMove(before, after, operation, 1);
     case "send-backward":
       return isLayerMove(before, after, operation, -1);
+    case "bring-to-front":
+      return isLayerMoveToExtreme(before, after, operation, "front");
+    case "send-to-back":
+      return isLayerMoveToExtreme(before, after, operation, "back");
     case "edit-element":
       return isUpdatedElement(before, after, operation, "other");
     case "edit-elements":
@@ -422,17 +428,16 @@ function isCreatedSlide(
       "slide",
       ...added_slide.elements.map(() => "element" as const),
     ]) ||
-    !hasSameDocumentExceptSlides(before, after) ||
-    !hasAddedAtEnd(before.slides, after.slides, added_slide.id)
+    !hasSameDocumentExceptSlides(before, after)
   )
     return false;
   if (!is_duplicate)
     return (
-      added_slide.elements.length === 0 && hasDefaultSlideValues(added_slide)
+      added_slide.elements.length === 0 &&
+      hasDefaultSlideValues(added_slide) &&
+      hasAddedAtEnd(before.slides, after.slides, added_slide.id)
     );
-  return before.slides.some((slide) =>
-    hasDuplicatedSlideContent(slide, added_slide),
-  );
+  return hasAddedAdjacentDuplicate(before.slides, after.slides, added_slide);
 }
 
 function isDeletedSlide(
@@ -586,11 +591,31 @@ function isLayerMove(
   );
 }
 
+function isLayerMoveToExtreme(
+  before: PresentationDocumentState,
+  after: PresentationDocumentState,
+  operation: PresentationOperation,
+  target_layer: "back" | "front",
+): boolean {
+  return isElementReordering(
+    before,
+    after,
+    operation,
+    (before_index, after_index, element_count) =>
+      before_index !== after_index &&
+      after_index === (target_layer === "back" ? 0 : element_count - 1),
+  );
+}
+
 function isElementReordering(
   before: PresentationDocumentState,
   after: PresentationDocumentState,
   operation: PresentationOperation,
-  is_valid_move: (before_index: number, after_index: number) => boolean,
+  is_valid_move: (
+    before_index: number,
+    after_index: number,
+    element_count: number,
+  ) => boolean,
 ): boolean {
   const changed_element = getSingleChangedElement(before, after, operation);
   const changed_slide = getSingleChangedSlide(before, after, operation);
@@ -622,6 +647,7 @@ function isElementReordering(
     changed_slide.after.elements.findIndex(
       (element) => element.id === changed_element.after.id,
     ),
+    changed_slide.before.elements.length,
   );
 }
 
@@ -910,6 +936,27 @@ function hasAddedAtEnd<T extends { readonly id: string }>(
       (item, index) => JSON.stringify(item) === JSON.stringify(after[index]),
     )
   );
+}
+
+function hasAddedAdjacentDuplicate(
+  before: readonly Slide[],
+  after: readonly Slide[],
+  added_slide: Slide,
+): boolean {
+  const added_index = after.findIndex((slide) => slide.id === added_slide.id);
+  const source_slide = after[added_index - 1];
+  if (
+    added_index <= 0 ||
+    source_slide === undefined ||
+    after.length !== before.length + 1 ||
+    !before.every(
+      (slide, index) =>
+        JSON.stringify(slide) ===
+        JSON.stringify(after[index < added_index ? index : index + 1]),
+    )
+  )
+    return false;
+  return hasDuplicatedSlideContent(source_slide, added_slide);
 }
 
 function hasRemovedItem<T extends { readonly id: string }>(

@@ -7,6 +7,7 @@ import {
   confirmPresentationPublished,
   confirmPresentationSaved,
   bringForward as coreBringForward,
+  bringToFront as coreBringToFront,
   configureAnimation as coreConfigureAnimation,
   configureTransition as coreConfigureTransition,
   createElement as coreCreateElement,
@@ -26,6 +27,7 @@ import {
   replaceAsset as coreReplaceAsset,
   resizeElement as coreResizeElement,
   sendBackward as coreSendBackward,
+  sendToBack as coreSendToBack,
   createPresentation,
   createPresentationDeletionIntent,
   deserializePresentationState,
@@ -99,6 +101,8 @@ const duplicate_element = withUpdatedAt(coreDuplicateElement);
 const reorder_element = withUpdatedAt(coreReorderElement);
 const bring_forward = withUpdatedAt(coreBringForward);
 const send_backward = withUpdatedAt(coreSendBackward);
+const bring_to_front = withUpdatedAt(coreBringToFront);
+const send_to_back = withUpdatedAt(coreSendToBack);
 const move_element = withUpdatedAt(coreMoveElement);
 const resize_element = withUpdatedAt(coreResizeElement);
 const replace_asset = withUpdatedAt(coreReplaceAsset);
@@ -163,7 +167,7 @@ test("limits a redo entry to the slide it exclusively affects", () => {
   });
 });
 
-test("does not classify presentation-only or multi-slide history as slide-scoped", () => {
+test("keeps presentation history global while scoping a reorder to its moved slide", () => {
   const first_slide = create_slide(createState(), { id: "slide_1" });
   assert.equal(first_slide.success, true);
   if (!first_slide.success) return;
@@ -194,7 +198,7 @@ test("does not classify presentation-only or multi-slide history as slide-scoped
   if (multi_slide_entry === undefined) return;
   assert.equal(
     isHistoryEntryApplicableToSlide(multi_slide_entry, "slide_1"),
-    false,
+    true,
   );
   assert.equal(
     isHistoryEntryApplicableToSlide(multi_slide_entry, "slide_2"),
@@ -462,6 +466,119 @@ test("resizes text freely and restores text layer changes through undo and redo"
     redo_layer.state.slides[0]?.elements.map((element) => element.id),
     ["shape_1", "text_1"],
   );
+});
+
+test("moves elements to their extreme layers only within the addressed slide", () => {
+  const first = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "element_1",
+      type: "shape",
+      shapeType: "rectangle",
+      position: { x: 100, y: 100 },
+      size: { width: 200, height: 100 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(first.success, true);
+  if (!first.success) return;
+  const second = create_element(first.state, {
+    slideId: "slide_1",
+    element: {
+      id: "element_2",
+      type: "shape",
+      shapeType: "rectangle",
+      position: { x: 400, y: 100 },
+      size: { width: 200, height: 100 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(second.success, true);
+  if (!second.success) return;
+  const third = create_element(second.state, {
+    slideId: "slide_1",
+    element: {
+      id: "element_3",
+      type: "shape",
+      shapeType: "rectangle",
+      position: { x: 700, y: 100 },
+      size: { width: 200, height: 100 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(third.success, true);
+  if (!third.success) return;
+
+  const second_slide = create_slide(third.state, { id: "slide_2" });
+  assert.equal(second_slide.success, true);
+  if (!second_slide.success) return;
+  const other_element = create_element(second_slide.state, {
+    slideId: "slide_2",
+    element: {
+      id: "other_element",
+      type: "shape",
+      shapeType: "rectangle",
+      position: { x: 100, y: 100 },
+      size: { width: 200, height: 100 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(other_element.success, true);
+  if (!other_element.success) return;
+
+  const sent_to_back = send_to_back(other_element.state, {
+    slideId: "slide_1",
+    elementId: "element_3",
+  });
+  assert.equal(sent_to_back.success, true);
+  if (!sent_to_back.success) return;
+  assert.equal(sent_to_back.operation.type, "send-to-back");
+  assert.deepEqual(
+    sent_to_back.state.slides[0]?.elements.map((element) => element.id),
+    ["element_3", "element_1", "element_2"],
+  );
+  assert.deepEqual(
+    sent_to_back.state.slides[1]?.elements.map((element) => element.id),
+    ["other_element"],
+  );
+
+  const brought_to_front = bring_to_front(sent_to_back.state, {
+    slideId: "slide_1",
+    elementId: "element_3",
+  });
+  assert.equal(brought_to_front.success, true);
+  if (!brought_to_front.success) return;
+  assert.equal(brought_to_front.operation.type, "bring-to-front");
+  assert.deepEqual(
+    brought_to_front.state.slides[0]?.elements.map((element) => element.id),
+    ["element_1", "element_2", "element_3"],
+  );
+
+  const serialized = serializePresentationState(brought_to_front.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  const undone = undo(restored.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.deepEqual(
+    undone.state.slides[0]?.elements.map((element) => element.id),
+    ["element_3", "element_1", "element_2"],
+  );
+
+  const boundary = send_to_back(undone.state, {
+    slideId: "slide_1",
+    elementId: "element_3",
+  });
+  assert.equal(boundary.success, false);
+  assert.equal(boundary.error.code, "LAYER_BOUNDARY");
+  assert.deepEqual(boundary.state, undone.state);
 });
 
 test("rotates an element through one edit operation without changing its bounds", () => {
@@ -1550,6 +1667,141 @@ test("duplicates slides with caller-provided stable identifiers and fresh revisi
   assert.equal(invalid.success, false);
   assert.equal(invalid.error.code, "VALIDATION_ERROR");
   assert.deepEqual(invalid.state, created_element.state);
+
+  const reused_element_id = duplicate_slide(created_element.state, {
+    slideId: "slide_1",
+    id: "slide_2",
+    elementIds: Object.fromEntries([["image_1", "image_1"]]),
+  });
+  assert.equal(reused_element_id.success, false);
+  assert.equal(reused_element_id.error.code, "VALIDATION_ERROR");
+});
+
+test("inserts a duplicated slide immediately after its source", () => {
+  const first = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first.success, true);
+  if (!first.success) return;
+  const second = create_slide(first.state, { id: "slide_2" });
+  assert.equal(second.success, true);
+  if (!second.success) return;
+  const customized_source = edit_slide(second.state, {
+    slideId: "slide_1",
+    patch: { background: { type: "solid", color: "#000000" } },
+  });
+  assert.equal(customized_source.success, true);
+  if (!customized_source.success) return;
+
+  const duplicated = duplicate_slide(customized_source.state, {
+    slideId: "slide_1",
+    id: "slide_3",
+    elementIds: {},
+  });
+
+  assert.equal(duplicated.success, true);
+  if (!duplicated.success) return;
+  assert.deepEqual(
+    duplicated.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_3", "slide_2"],
+  );
+
+  const serialized = serializePresentationState(duplicated.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  assert.deepEqual(
+    restored.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_3", "slide_2"],
+  );
+
+  const duplicate_entry = duplicated.state.undoStack.at(-1);
+  const [source_slide, duplicated_slide, sibling_slide] =
+    duplicated.state.slides;
+  assert.notEqual(duplicate_entry, undefined);
+  assert.notEqual(source_slide, undefined);
+  assert.notEqual(duplicated_slide, undefined);
+  assert.notEqual(sibling_slide, undefined);
+  if (
+    duplicate_entry === undefined ||
+    source_slide === undefined ||
+    duplicated_slide === undefined ||
+    sibling_slide === undefined
+  )
+    return;
+  const reordered_slides = [source_slide, sibling_slide, duplicated_slide];
+  const invalid_duplicate_state = {
+    ...duplicated.state,
+    slides: reordered_slides,
+    undoStack: [
+      ...duplicated.state.undoStack.slice(0, -1),
+      {
+        ...duplicate_entry,
+        after: { ...duplicate_entry.after, slides: reordered_slides },
+      },
+    ],
+  };
+  assert.equal(
+    serializePresentationState(invalid_duplicate_state).success,
+    false,
+  );
+});
+
+test("limits duplicate history to the newly duplicated slide", () => {
+  const first = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first.success, true);
+  if (!first.success) return;
+  const second = create_slide(first.state, { id: "slide_2" });
+  assert.equal(second.success, true);
+  if (!second.success) return;
+  const duplicated = duplicate_slide(second.state, {
+    slideId: "slide_1",
+    id: "slide_3",
+    elementIds: {},
+  });
+  assert.equal(duplicated.success, true);
+  if (!duplicated.success) return;
+  const entry = duplicated.state.undoStack.at(-1);
+  assert.notEqual(entry, undefined);
+  if (entry === undefined) return;
+
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_3"), true);
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_1"), false);
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_2"), false);
+
+  const undone = undo(duplicated.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  const redo_entry = undone.state.redoStack.at(-1);
+  assert.notEqual(redo_entry, undefined);
+  if (redo_entry === undefined) return;
+  assert.equal(isHistoryEntryApplicableToSlide(redo_entry, "slide_3"), true);
+  assert.equal(isHistoryEntryApplicableToSlide(redo_entry, "slide_2"), false);
+  const redone = redo(undone.state);
+  assert.equal(redone.success, true);
+  if (!redone.success) return;
+  assert.deepEqual(
+    redone.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_3", "slide_2"],
+  );
+});
+
+test("makes deletion history available from the deterministic surviving fallback", () => {
+  const first = create_slide(createState(), { id: "slide_1" });
+  assert.equal(first.success, true);
+  if (!first.success) return;
+  const second = create_slide(first.state, { id: "slide_2" });
+  assert.equal(second.success, true);
+  if (!second.success) return;
+  const deleted = delete_slide(second.state, { slideId: "slide_2" });
+  assert.equal(deleted.success, true);
+  if (!deleted.success) return;
+  const entry = deleted.state.undoStack.at(-1);
+  assert.notEqual(entry, undefined);
+  if (entry === undefined) return;
+
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_1"), true);
+  assert.equal(isHistoryEntryApplicableToSlide(entry, "slide_2"), true);
 });
 
 test("duplicates and reorders elements by stable identifiers with undo and redo", () => {

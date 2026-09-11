@@ -5,8 +5,9 @@ import type {
 } from "./types";
 
 /**
- * Returns whether a logical history entry affects exactly the requested slide.
- * Presentation-only, multi-slide, and unrecognized operations stay global.
+ * Returns whether the top logical history entry is safe to apply from the
+ * requested slide. Reordering remains scoped to its moved slide, while a
+ * deletion is available from the deterministic surviving fallback selection.
  */
 export function isHistoryEntryApplicableToSlide(
   entry: OperationHistoryEntry,
@@ -14,14 +15,42 @@ export function isHistoryEntryApplicableToSlide(
 ): boolean {
   if (!isSlideScopedOperation(entry.operation)) return false;
 
-  const snapshot_slide_ids = getChangedSlideIds(entry.before, entry.after);
   const operation_slide_ids = getOperationSlideIds(entry);
+  if (operation_slide_ids?.size !== 1) return false;
+
+  if (entry.operation.type === "reorder-slide")
+    return operation_slide_ids.has(slide_id);
+
+  if (entry.operation.type === "duplicate-slide")
+    return operation_slide_ids.has(slide_id);
+
+  if (entry.operation.type === "delete-slide")
+    return (
+      operation_slide_ids.has(slide_id) ||
+      getDeletedSlideFallbackId(entry.before, entry.after) === slide_id
+    );
+
+  const snapshot_slide_ids = getChangedSlideIds(entry.before, entry.after);
 
   return (
     snapshot_slide_ids.size === 1 &&
-    operation_slide_ids?.size === 1 &&
     snapshot_slide_ids.has(slide_id) &&
     operation_slide_ids.has(slide_id)
+  );
+}
+
+function getDeletedSlideFallbackId(
+  before: PresentationDocumentState,
+  after: PresentationDocumentState,
+): string | null {
+  const deleted_index = before.slides.findIndex(
+    (slide) => !after.slides.some((remaining) => remaining.id === slide.id),
+  );
+  if (deleted_index === -1) return null;
+  return (
+    before.slides[deleted_index - 1]?.id ??
+    after.slides[deleted_index]?.id ??
+    null
   );
 }
 
@@ -45,6 +74,8 @@ function isSlideScopedOperation(
     case "reorder-element":
     case "bring-forward":
     case "send-backward":
+    case "bring-to-front":
+    case "send-to-back":
     case "move-element":
     case "resize-element":
     case "replace-asset":

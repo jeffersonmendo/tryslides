@@ -445,7 +445,7 @@ test("reveals canvas overflow with non-interactive opaque exterior overlays", ()
   );
 
   assert.doesNotMatch(canvas_source, /overflow-hidden/);
-  assert.match(canvas_source, /relative group shrink-0 overflow-visible/);
+  assert.match(canvas_source, /relative group overflow-visible shrink-0/);
   assert.equal(canvas_source.match(/data-canvas-outside-overlay=/g)?.length, 4);
   assert.equal(
     canvas_source.match(/pointer-events-none[^\n]*bg-muted\/80/g)?.length,

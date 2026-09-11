@@ -4,6 +4,7 @@ export { ANIMATION_CAPABILITIES } from "./capabilities/animation";
 export { TRANSITION_CAPABILITIES } from "./capabilities/transition";
 export {
   bringForward,
+  bringToFront,
   configureAnimation,
   configureTransition,
   confirmPresentationPublished,
@@ -28,6 +29,7 @@ export {
   replaceAsset,
   resizeElement,
   sendBackward,
+  sendToBack,
   undo,
 } from "./commands";
 export { isHistoryEntryApplicableToSlide } from "./history";
@@ -43,6 +45,7 @@ export type {
   AnimationConfigurationInput,
   AnimationType,
   BringForwardInput,
+  BringToFrontInput,
   CommandResult,
   ConfigureAnimationInput,
   ConfigureTransitionInput,
@@ -92,6 +95,7 @@ export type {
   ReplaceAssetInput,
   ResizeElementInput,
   SendBackwardInput,
+  SendToBackInput,
   SerializePresentationStateResult,
   ShapeElement,
   ShapeStyle,

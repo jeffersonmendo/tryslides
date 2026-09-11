@@ -14,9 +14,9 @@ test("shows the active slide outline only when no elements are selected", () => 
   );
   assert.match(
     source,
-    /outline bg-background data-\[selected=true\]:outline-blue-500/,
+    /data-\[selected=true\]:outline[\s\S]*bg-background[\s\S]*data-\[selected=true\]:outline-blue-500/,
   );
-  assert.doesNotMatch(source, /data-\[selected=true\]:outline-2/);
+  assert.match(source, /dark:data-\[selected=true\]:outline-2/);
   assert.match(
     source,
     /<button[\s\S]*type="button"[\s\S]*onClick=\{onDeselectElement\}/,
@@ -24,7 +24,7 @@ test("shows the active slide outline only when no elements are selected", () => 
   assert.match(source, /aria-pressed=\{selectionIds\.length === 0\}/);
   assert.match(
     source,
-    /bottom-full left-0 z-20 mb-2 flex items-center gap-4 rounded-md bg-white p-1 px-2 text-xs! text-foreground/,
+    /bottom-full left-0 mb-2 flex items-center gap-4 rounded-md bg-white dark:bg-sidebar/,
   );
   assert.match(source, /\{activeSlide\.ariaLabel\}/);
   assert.equal(

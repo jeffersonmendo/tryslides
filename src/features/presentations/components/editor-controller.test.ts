@@ -91,3 +91,33 @@ test("only enables and dispatches history for the active slide after drafts flus
     /onRedo=\{\(\) => \{[\s\S]*runHistoryCommand\(capability\.redo, "redoStack"\)/,
   );
 });
+
+test("flushes drafts and keeps selection coherent for slide mutations", () => {
+  assert.match(
+    source,
+    /function runSlideCommand[\s\S]*scheduler_ref\.current\?\.flushAll\(\)[\s\S]*runCommand\(command, false, on_success\)/,
+  );
+  assert.match(source, /capability\.duplicateSlide/);
+  assert.match(source, /capability\.deleteSlide/);
+  assert.match(source, /capability\.reorderSlide/);
+  assert.match(source, /function getDeletedSlideFallbackId/);
+  assert.match(
+    source,
+    /slides\[deleted_index - 1\]\?\.id \?\? slides\[deleted_index \+ 1\]\?\.id \?\? null/,
+  );
+});
+
+test("routes layout alignment and extreme layer actions through the editor capability", () => {
+  assert.match(
+    source,
+    /onAlignElement=\{\(element_id, alignment\) =>[\s\S]*capability\.alignElement[\s\S]*alignment/,
+  );
+  assert.match(
+    source,
+    /onSendToBack=\{\(element_id\) =>[\s\S]*capability\.sendToBack/,
+  );
+  assert.match(
+    source,
+    /onBringToFront=\{\(element_id\) =>[\s\S]*capability\.bringToFront/,
+  );
+});

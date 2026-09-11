@@ -906,6 +906,140 @@ test("persists text creation, editing, undo, redo, and reload through the editor
   );
 });
 
+test("persists adjacent duplicate, duplicate deletion, and drag reorder through reload", async () => {
+  const repository = createRepository();
+  let slide_number = 0;
+  let timestamp = Date.parse(CREATED_AT);
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => PRESENTATION_ID,
+      createPublicId: () => PUBLIC_ID,
+      createSlideId: () => `slide_${++slide_number}`,
+      createElementId: () => "element_1",
+      createLocalOperationId: () => crypto.randomUUID(),
+    },
+    {
+      now: () => {
+        timestamp += 1;
+        return new Date(timestamp).toISOString();
+      },
+    },
+  );
+  const capability = createEditorCapability(repository, commands);
+  const created = await commands.createWithInitialSlide({
+    title: "Slide persistence",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const second_prepared = capability.createSlide(created.state);
+  assert.equal(second_prepared.success, true);
+  if (!second_prepared.success) return;
+  const second = await second_prepared.persist();
+  assert.equal(second.success, true);
+  if (!second.success) return;
+
+  const duplicated_prepared = capability.duplicateSlide(second.state, {
+    slideId: "slide_1",
+  });
+  assert.equal(duplicated_prepared.success, true);
+  if (!duplicated_prepared.success) return;
+  const duplicated = await duplicated_prepared.persist();
+  assert.equal(duplicated.success, true);
+  if (!duplicated.success) return;
+  const duplicated_reload = await capability.loadPresentation(PRESENTATION_ID);
+  assert.equal(duplicated_reload.success, true);
+  if (!duplicated_reload.success) return;
+  assert.deepEqual(
+    duplicated_reload.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_3", "slide_2"],
+  );
+
+  const deleted_prepared = capability.deleteSlide(duplicated.state, {
+    slideId: "slide_3",
+  });
+  assert.equal(deleted_prepared.success, true);
+  if (!deleted_prepared.success) return;
+  const deleted = await deleted_prepared.persist();
+  assert.equal(deleted.success, true);
+  if (!deleted.success) return;
+  const deleted_reload = await capability.loadPresentation(PRESENTATION_ID);
+  assert.equal(deleted_reload.success, true);
+  if (!deleted_reload.success) return;
+  assert.deepEqual(
+    deleted_reload.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_2"],
+  );
+
+  const reordered_prepared = capability.reorderSlide(deleted.state, {
+    slideId: "slide_2",
+    afterSlideId: null,
+  });
+  assert.equal(reordered_prepared.success, true);
+  if (!reordered_prepared.success) return;
+  const reordered = await reordered_prepared.persist();
+  assert.equal(reordered.success, true);
+  if (!reordered.success) return;
+  const reordered_reload = await capability.loadPresentation(PRESENTATION_ID);
+  assert.equal(reordered_reload.success, true);
+  if (!reordered_reload.success) return;
+  assert.deepEqual(
+    reordered_reload.state.slides.map((slide) => slide.id),
+    ["slide_2", "slide_1"],
+  );
+});
+
+test("persists a standalone slide deletion through reload", async () => {
+  const repository = createRepository();
+  let slide_number = 0;
+  let timestamp = Date.parse(CREATED_AT);
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => PRESENTATION_ID,
+      createPublicId: () => PUBLIC_ID,
+      createSlideId: () => `slide_${++slide_number}`,
+      createElementId: () => "element_1",
+      createLocalOperationId: () => crypto.randomUUID(),
+    },
+    {
+      now: () => {
+        timestamp += 1;
+        return new Date(timestamp).toISOString();
+      },
+    },
+  );
+  const capability = createEditorCapability(repository, commands);
+  const created = await commands.createWithInitialSlide({
+    title: "Standalone deletion",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const second_prepared = capability.createSlide(created.state);
+  assert.equal(second_prepared.success, true);
+  if (!second_prepared.success) return;
+  const second = await second_prepared.persist();
+  assert.equal(second.success, true);
+  if (!second.success) return;
+
+  const deleted_prepared = capability.deleteSlide(second.state, {
+    slideId: "slide_2",
+  });
+  assert.equal(deleted_prepared.success, true);
+  if (!deleted_prepared.success) return;
+  const deleted = await deleted_prepared.persist();
+  assert.equal(deleted.success, true);
+  if (!deleted.success) return;
+  const reloaded = await capability.loadPresentation(PRESENTATION_ID);
+  assert.equal(reloaded.success, true);
+  if (!reloaded.success) return;
+  assert.deepEqual(
+    reloaded.state.slides.map((slide) => slide.id),
+    ["slide_1"],
+  );
+});
+
 test("allocates distinct local operation IDs for repeated injected values", async () => {
   const repository = createRepository();
   const clock_values = [

@@ -21,11 +21,14 @@ test("color control synchronizes a normalized outer draft with its popover", () 
   );
 
   const input = screen.getByRole("textbox", { name: "Color" }) as HTMLInputElement;
+  assert.equal(input.value, "112233");
+
   fireEvent.change(input, { target: { value: "#abc" } });
-  assert.equal(input.value, "#abc");
+  assert.equal(input.value, "abc");
   assert.deepEqual(changes, []);
 
-  fireEvent.change(input, { target: { value: "#abcdef" } });
+  fireEvent.change(input, { target: { value: "abcdef" } });
+  assert.equal(input.value, "ABCDEF");
   fireEvent.blur(input);
   assert.deepEqual(changes, ["#ABCDEF"]);
   assert.deepEqual(commits, ["#ABCDEF"]);

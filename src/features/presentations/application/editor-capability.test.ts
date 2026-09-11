@@ -119,6 +119,111 @@ test("deletes an element through the editor application capability", async () =>
   assert.deepEqual(result.state.slides[0]?.elements, []);
 });
 
+test("aligns an element against the canvas edges and centers using its size", async () => {
+  const repository = new MemoryPresentationRepository();
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => "550e8400-e29b-41d4-a716-446655440000",
+      createPublicId: () => "Ab3xYz",
+      createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
+      createLocalOperationId: () => "operation_1",
+    },
+    createClock(),
+  );
+  const capability = createEditorCapability(repository, commands);
+  const presentation = await commands.createWithInitialSlide({
+    title: "Align",
+  });
+  assert.equal(presentation.success, true);
+  if (!presentation.success) return;
+  const created = await capability.createShapeElement(presentation.state, {
+    slideId: "slide_1",
+    shapeType: "rectangle",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const aligned_right = capability.alignElement(created.state, {
+    slideId: "slide_1",
+    elementId: "element_1",
+    alignment: "right",
+  });
+  assert.equal(aligned_right.success, true);
+  if (!aligned_right.success) return;
+  assert.deepEqual(aligned_right.state.slides[0]?.elements[0]?.position, {
+    x: 1320,
+    y: 360,
+  });
+
+  const aligned_bottom = capability.alignElement(aligned_right.state, {
+    slideId: "slide_1",
+    elementId: "element_1",
+    alignment: "bottom",
+  });
+  assert.equal(aligned_bottom.success, true);
+  if (!aligned_bottom.success) return;
+  assert.deepEqual(aligned_bottom.state.slides[0]?.elements[0]?.position, {
+    x: 1320,
+    y: 720,
+  });
+});
+
+test("duplicates a slide after its source with fresh element IDs and shared asset references", async () => {
+  const repository = new AssetMemoryPresentationRepository();
+  let slide_number = 0;
+  let element_number = 0;
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => "550e8400-e29b-41d4-a716-446655440000",
+      createPublicId: () => "Ab3xYz",
+      createSlideId: () => `slide_${++slide_number}`,
+      createElementId: () => `element_${++element_number}`,
+      createLocalOperationId: () => "operation_1",
+    },
+    createClock(),
+  );
+  const capability = createEditorCapability(repository, commands);
+  const presentation = await commands.createWithInitialSlide({
+    title: "Duplicate",
+  });
+  assert.equal(presentation.success, true);
+  if (!presentation.success) return;
+  const image = await capability.createImageElement(presentation.state, {
+    slideId: "slide_1",
+    file: new File(["image"], "image.png", { type: "image/png" }),
+    naturalSize: { width: 800, height: 400 },
+  });
+  assert.equal(image.success, true);
+  if (!image.success) return;
+
+  const duplicated = capability.duplicateSlide(image.state, {
+    slideId: "slide_1",
+  });
+  assert.equal(duplicated.success, true);
+  if (!duplicated.success) return;
+  assert.deepEqual(
+    duplicated.state.slides.map((slide) => slide.id),
+    ["slide_1", "slide_2"],
+  );
+  assert.notEqual(
+    duplicated.state.slides[0]?.elements[0]?.id,
+    duplicated.state.slides[1]?.elements[0]?.id,
+  );
+  assert.equal(duplicated.state.slides[0]?.elements[0]?.type, "image");
+  assert.equal(duplicated.state.slides[1]?.elements[0]?.type, "image");
+  if (
+    duplicated.state.slides[0]?.elements[0]?.type === "image" &&
+    duplicated.state.slides[1]?.elements[0]?.type === "image"
+  )
+    assert.equal(
+      duplicated.state.slides[0].elements[0].assetId,
+      duplicated.state.slides[1].elements[0].assetId,
+    );
+});
+
 test("creates a decoded image batch in selection order with one persisted operation", async () => {
   const repository = new AssetMemoryPresentationRepository();
   let element_number = 0;

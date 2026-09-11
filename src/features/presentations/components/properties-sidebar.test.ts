@@ -32,9 +32,24 @@ test("renders slide controls without a selected element and omits repeated summa
   assert.match(sidebar_source, /<SlideInspector/);
   assert.match(sidebar_source, /onBackgroundChange=\{onBackgroundChange\}/);
   assert.match(sidebar_source, /onTransitionChange=\{onTransitionChange\}/);
+  assert.match(sidebar_source, /onDuplicateSlide=\{on_duplicate_slide\}/);
+  assert.match(sidebar_source, /onDeleteSlide=\{on_delete_slide\}/);
   assert.doesNotMatch(sidebar_source, /labels\.noSelection/);
   assert.doesNotMatch(sidebar_source, /\{labels\.slideBackground\}: \{/);
   assert.doesNotMatch(sidebar_source, /\{labels\.slideTransition\}: \{/);
+});
+
+test("keeps duplicate and delete slide controls in the slide inspector", () => {
+  const inspector_source = readFileSync(
+    new URL("./slide-inspector.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(inspector_source, /onClick=\{on_duplicate_slide\}/);
+  assert.match(inspector_source, /onClick=\{on_delete_slide\}/);
+  assert.match(
+    inspector_source,
+    /variant="secondary"[\s\S]*onClick=\{on_delete_slide\}/,
+  );
 });
 
 test("configures the active slide through draft inputs and Select primitives", () => {
@@ -82,10 +97,16 @@ test("uses draft inputs, selects, and immediate discrete actions", () => {
     /disabled=\{elementIndex === elementCount - 1\}/,
   );
   assert.match(text_inspector_source, /<AlignmentToggleItem/);
-  assert.match(
-    text_inspector_source,
-    /<TooltipContent>\{label\}<\/TooltipContent>/,
+  assert.equal(
+    element_inspector_source.match(/<Tooltip disableHoverablePopup>/g)?.length,
+    1,
   );
+  assert.equal(
+    text_inspector_source.match(/<Tooltip disableHoverablePopup>/g)?.length,
+    2,
+  );
+  assert.doesNotMatch(element_inspector_source, /pointer-events-none/);
+  assert.doesNotMatch(text_inspector_source, /pointer-events-none/);
   assert.doesNotMatch(element_inspector_source, /InspectorColorField/);
   assert.doesNotMatch(text_inspector_source, /InspectorColorField/);
 });
@@ -134,20 +155,50 @@ test("uses pixel unit controls for dimensional style values and correct layer ic
   assert.doesNotMatch(element_inspector_source, /NumberStyleField/);
   assert.match(
     element_inspector_source,
-    /icon=\{<IconStackPush \/>\}[\s\S]*label=\{labels\.moveBackward\}[\s\S]*onClick=\{onSendBackward\}/,
+    /icon=\{<IconChevronDown stroke=\{2\} \/>\}[\s\S]*label=\{labels\.moveBackward\}[\s\S]*onClick=\{onSendBackward\}/,
   );
   assert.match(
     element_inspector_source,
-    /icon=\{<IconStackPop \/>\}[\s\S]*label=\{labels\.moveForward\}[\s\S]*onClick=\{onBringForward\}/,
+    /icon=\{<IconChevronUp stroke=\{2\} \/>\}[\s\S]*label=\{labels\.moveForward\}[\s\S]*onClick=\{onBringForward\}/,
   );
   assert.match(
     text_inspector_source,
-    /icon=\{<IconStackPush \/>\}[\s\S]*label=\{labels\.moveBackward\}[\s\S]*onClick=\{onSendBackward\}/,
+    /icon=\{<IconChevronDown stroke=\{2\} \/>\}[\s\S]*label=\{labels\.moveBackward\}[\s\S]*onClick=\{onSendBackward\}/,
   );
   assert.match(
     text_inspector_source,
-    /icon=\{<IconStackPop \/>\}[\s\S]*label=\{labels\.moveForward\}[\s\S]*onClick=\{onBringForward\}/,
+    /icon=\{<IconChevronUp stroke=\{2\} \/>\}[\s\S]*label=\{labels\.moveForward\}[\s\S]*onClick=\{onBringForward\}/,
   );
+  for (const inspector_source of [
+    element_inspector_source,
+    text_inspector_source,
+  ]) {
+    for (const icon of [
+      "IconLayoutAlignLeftFilled",
+      "IconLayoutAlignCenterFilled",
+      "IconLayoutAlignRightFilled",
+      "IconLayoutAlignTopFilled",
+      "IconLayoutAlignMiddleFilled",
+      "IconLayoutAlignBottomFilled",
+    ])
+      assert.match(inspector_source, new RegExp(`<${icon} stroke=\\{2\\} />`));
+    assert.match(
+      inspector_source,
+      /<FieldLabel>\{labels\.layers\}<\/FieldLabel>/,
+    );
+    assert.doesNotMatch(
+      inspector_source,
+      /<FieldLegend[^>]*>\s*\{labels\.layers\}/,
+    );
+    assert.match(
+      inspector_source,
+      /icon=\{<IconChevronsDown stroke=\{2\} \/>\}[\s\S]*label=\{labels\.sendToBack\}[\s\S]*onClick=\{onSendToBack\}/,
+    );
+    assert.match(
+      inspector_source,
+      /icon=\{<IconChevronsUp stroke=\{2\} \/>\}[\s\S]*label=\{labels\.bringToFront\}[\s\S]*onClick=\{onBringToFront\}/,
+    );
+  }
 });
 
 test("publishes group inspector values immediately and commits them at completion", () => {
