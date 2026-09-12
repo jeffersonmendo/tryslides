@@ -45,3 +45,15 @@ export function toImageUrlRecord(
 ): Readonly<Record<string, string>> {
   return Object.fromEntries([...entries].map(([id, entry]) => [id, entry.url]));
 }
+
+export function getImageUrlRecordIfChanged(
+  current: Readonly<Record<string, string>>,
+  entries: ReadonlyMap<string, ImageUrlEntry>,
+): Readonly<Record<string, string>> {
+  if (Object.keys(current).length !== entries.size)
+    return toImageUrlRecord(entries);
+  for (const [id, entry] of entries) {
+    if (current[id] !== entry.url) return toImageUrlRecord(entries);
+  }
+  return current;
+}

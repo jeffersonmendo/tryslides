@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   Empty,
   EmptyDescription,
@@ -31,10 +31,10 @@ import {
   normalizeGeometryDraftPatch,
 } from "./editor-geometry-draft";
 import {
+  getImageUrlRecordIfChanged,
   type ImageAssetReference,
   type ImageUrlEntry,
   reconcileImageUrlEntries,
-  toImageUrlRecord,
 } from "./editor-image-urls";
 import type { EditorSelection } from "./editor-model";
 import { toEditorSlide } from "./editor-projection";
@@ -81,16 +81,20 @@ export function EditorController({
   const image_import_pending_ref = useRef(false);
   const image_url_entries_ref = useRef(new Map<string, ImageUrlEntry>());
   const image_load_generation_ref = useRef(0);
-  const image_asset_references = useMemo(
-    () =>
-      effective_state === null
-        ? []
-        : getImageAssetReferences(effective_state.slides),
-    [effective_state],
+  const image_asset_reference_key = getImageAssetReferenceKey(
+    effective_state?.slides ?? [],
+  );
+  const get_image_asset_references = useEffectEvent(() =>
+    getImageAssetReferences(effective_state?.slides ?? []),
+  );
+  const has_image_asset_reference_key = useEffectEvent(
+    (key: string) =>
+      getImageAssetReferenceKey(effective_state?.slides ?? []) === key,
   );
 
   useEffect(() => {
     const generation = ++image_load_generation_ref.current;
+    const image_asset_references = get_image_asset_references();
     const reconciliation = reconcileImageUrlEntries(
       image_url_entries_ref.current,
       image_asset_references,
@@ -99,7 +103,9 @@ export function EditorController({
       URL.revokeObjectURL(entry.url);
     });
     image_url_entries_ref.current = new Map(reconciliation.retained);
-    set_image_urls(toImageUrlRecord(image_url_entries_ref.current));
+    set_image_urls((current) =>
+      getImageUrlRecordIfChanged(current, image_url_entries_ref.current),
+    );
 
     void Promise.all(
       reconciliation.missing.map(async (reference) => {
@@ -118,7 +124,10 @@ export function EditorController({
       const loaded_entries = entries.filter(
         (entry): entry is ImageUrlEntry => entry !== null,
       );
-      if (image_load_generation_ref.current !== generation) {
+      if (
+        image_load_generation_ref.current !== generation ||
+        !has_image_asset_reference_key(image_asset_reference_key)
+      ) {
         loaded_entries.forEach((entry) => {
           URL.revokeObjectURL(entry.url);
         });
@@ -126,9 +135,11 @@ export function EditorController({
       }
       for (const entry of loaded_entries)
         image_url_entries_ref.current.set(entry.id, entry);
-      set_image_urls(toImageUrlRecord(image_url_entries_ref.current));
+      set_image_urls((current) =>
+        getImageUrlRecordIfChanged(current, image_url_entries_ref.current),
+      );
     });
-  }, [image_asset_references, capability]);
+  }, [capability, image_asset_reference_key]);
 
   useEffect(
     () => () => {
@@ -1049,6 +1060,14 @@ function getImageAssetReferences(
     }
   }
   return [...references.values()];
+}
+
+function getImageAssetReferenceKey(slides: readonly Slide[]): string {
+  return JSON.stringify(
+    getImageAssetReferences(slides).toSorted((left, right) =>
+      left.id.localeCompare(right.id),
+    ),
+  );
 }
 
 function getSelectedText(

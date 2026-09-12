@@ -69,12 +69,17 @@ test("uses a lifecycle-safe scheduler draft subscription", () => {
 });
 
 test("loads distinct image assets referenced by every effective slide", () => {
-  assert.match(source, /getImageAssetReferences\(effective_state\.slides\)/);
+  assert.match(
+    source,
+    /const image_asset_reference_key = getImageAssetReferenceKey\(/,
+  );
+  assert.match(source, /\}, \[capability, image_asset_reference_key\]\);/);
   assert.match(
     source,
     /function getImageAssetReferences\(\s*slides: readonly Slide\[\],[\s\S]*for \(const slide of slides\)[\s\S]*for \(const element of slide\.elements\)/,
   );
   assert.match(source, /references\.set\(element\.assetId/);
+  assert.match(source, /getImageUrlRecordIfChanged\(\s*current/);
 });
 
 test("uses independent active-slide and presentation history after drafts flush", () => {

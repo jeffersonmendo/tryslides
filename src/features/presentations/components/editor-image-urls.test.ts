@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getImageUrlRecordIfChanged,
   type ImageUrlEntry,
   reconcileImageUrlEntries,
   toImageUrlRecord,
@@ -43,4 +44,23 @@ test("retains unchanged image URLs and invalidates removed or replaced assets", 
   assert.deepEqual(result.missing, [
     { id: "asset_2", contentIdentity: "asset_2-v2" },
   ]);
+});
+
+test("preserves the current URL record when entries are unchanged", () => {
+  const current = { assetOne: "blob:asset_1" };
+  const next = getImageUrlRecordIfChanged(
+    current,
+    new Map([
+      [
+        "assetOne",
+        {
+          id: "assetOne",
+          contentIdentity: "assetOne",
+          url: "blob:asset_1",
+        },
+      ],
+    ]),
+  );
+
+  assert.strictEqual(next, current);
 });
