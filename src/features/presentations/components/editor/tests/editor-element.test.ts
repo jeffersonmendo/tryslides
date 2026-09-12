@@ -62,7 +62,7 @@ test("renders a distinct accessible reference frame and consumes Shift reference
   );
 
   assert.match(source, /const border_width = isReference \? 2 : 1;/);
-  assert.match(source, /referenceElementLabel/);
+  assert.match(source, /referenceAlignmentSelected/);
   assert.match(source, /event\.shiftKey && isSelected && canSetReference/);
   assert.match(source, /onSetReference\(element\.id\)/);
   assert.match(

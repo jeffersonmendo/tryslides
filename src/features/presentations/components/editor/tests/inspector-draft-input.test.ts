@@ -49,7 +49,7 @@ test("uses the ordinary input unless an explicit input group control is requeste
   assert.match(source, /\) : \([\s\S]*<Input \{\.\.\.input_props\}/);
 });
 
-test("requests group controls only from local unit wrappers", () => {
+test("uses grouped inputs through local and shared inspector controls", () => {
   const element_inspector_source = readFileSync(
     new URL("../element-inspector.tsx", import.meta.url),
     "utf8",
@@ -62,13 +62,21 @@ test("requests group controls only from local unit wrappers", () => {
     new URL("../group-inspector.tsx", import.meta.url),
     "utf8",
   );
+  const inspector_controls_source = readFileSync(
+    new URL("../inspector-controls.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.match(
     element_inspector_source,
     /<InspectorDraftInput control="group"/,
   );
   assert.match(text_inspector_source, /<InspectorDraftInput control="group"/);
-  assert.match(group_inspector_source, /<InspectorDraftInput control="group"/);
+  assert.match(group_inspector_source, /<InspectorNumericField/);
+  assert.match(
+    inspector_controls_source,
+    /<InspectorDraftInput\s+[\s\S]*control="group"/,
+  );
 });
 
 test("commits a valid changed draft only on an explicit commit", () => {
