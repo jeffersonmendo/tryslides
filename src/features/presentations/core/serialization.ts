@@ -37,6 +37,13 @@ const OPERATION_TYPES = new Set([
   "create-elements",
   "edit-element",
   "edit-elements",
+  "move-elements",
+  "delete-elements",
+  "set-elements-opacity",
+  "rotate-elements",
+  "align-elements-to-canvas",
+  "align-elements-to-reference",
+  "distribute-elements",
   "delete-element",
   "duplicate-element",
   "reorder-element",
@@ -361,7 +368,15 @@ function hasOperationTypeCompatibleWithSnapshots(
     case "edit-element":
       return isUpdatedElement(before, after, operation, "other");
     case "edit-elements":
+    case "move-elements":
+    case "set-elements-opacity":
+    case "rotate-elements":
+    case "align-elements-to-canvas":
+    case "align-elements-to-reference":
+    case "distribute-elements":
       return isUpdatedElements(before, after, operation);
+    case "delete-elements":
+      return isDeletedElements(before, after, operation);
     case "move-element":
       return isUpdatedElement(before, after, operation, "position");
     case "resize-element":
@@ -592,6 +607,37 @@ function isDeletedElement(
       changed_slide.after.elements,
       deleted_element.id,
     )
+  );
+}
+function isDeletedElements(
+  before: PresentationDocumentState,
+  after: PresentationDocumentState,
+  operation: PresentationOperation,
+): boolean {
+  const changed_slide = getSingleChangedSlide(before, after, operation);
+  if (
+    changed_slide === undefined ||
+    !hasSameDocumentExceptSlides(before, after) ||
+    !hasSameSlideNonElementValues(changed_slide.before, changed_slide.after)
+  )
+    return false;
+  const after_ids = new Set(
+    changed_slide.after.elements.map((element) => element.id),
+  );
+  const deleted = changed_slide.before.elements.filter(
+    (element) => !after_ids.has(element.id),
+  );
+  return (
+    deleted.length > 0 &&
+    hasChanges(operation, [
+      "slide",
+      ...deleted.map(() => "element" as const),
+    ]) &&
+    JSON.stringify(
+      changed_slide.before.elements.filter((element) =>
+        after_ids.has(element.id),
+      ),
+    ) === JSON.stringify(changed_slide.after.elements)
   );
 }
 

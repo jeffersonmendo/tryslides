@@ -54,3 +54,19 @@ test("applies element opacity only to visual content", () => {
   assert.ok(opacity_wrapper_end > element_content_start);
   assert.ok(selection_controls_start > opacity_wrapper_end);
 });
+
+test("renders a distinct accessible reference frame and consumes Shift reference selection", () => {
+  const source = readFileSync(
+    new URL("./editor-element.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const border_width = isReference \? 2 : 1;/);
+  assert.match(source, /referenceElementLabel/);
+  assert.match(source, /event\.shiftKey && isSelected && canSetReference/);
+  assert.match(source, /onSetReference\(element\.id\)/);
+  assert.match(
+    source,
+    /event\.preventDefault\(\);\s*event\.stopPropagation\(\);\s*onSetReference/,
+  );
+});

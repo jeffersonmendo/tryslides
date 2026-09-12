@@ -12,12 +12,15 @@ type EditorWorkspaceProps = {
     readonly moveInstruction: string;
     readonly rotationElement: string;
     readonly rotationInstruction: string;
+    readonly referenceAlignmentSelected: string;
     readonly resizeElement: string;
     readonly resizeHandleLabels: Readonly<Record<ResizeHandle, string>>;
   };
   readonly selectionIds: readonly string[];
+  readonly referenceElementId: string | null;
   readonly imageUrls: Readonly<Record<string, string>>;
   readonly onSelectElement: (element_id: string, additive?: boolean) => void;
+  readonly onSetReferenceElement: (element_id: string) => void;
   readonly onSelectElements: (
     element_ids: readonly string[],
     additive: boolean,
@@ -46,8 +49,10 @@ export function EditorWorkspace({
   canvas,
   labels,
   selectionIds,
+  referenceElementId,
   imageUrls,
   onSelectElement,
+  onSetReferenceElement,
   onSelectElements,
   onDeselectElement,
   onMoveEnd,
@@ -66,14 +71,17 @@ export function EditorWorkspace({
         canvas={canvas}
         emptySlideLabel={labels.emptySlide}
         selectionIds={selectionIds}
+        referenceElementId={referenceElementId}
         imageUrls={imageUrls}
         imageUnavailableLabel={labels.imageUnavailable}
         moveInstruction={labels.moveInstruction}
         rotationElementLabel={labels.rotationElement}
         rotationInstruction={labels.rotationInstruction}
+        referenceElementLabel={labels.referenceAlignmentSelected}
         resizeElementLabel={labels.resizeElement}
         resizeHandleLabels={labels.resizeHandleLabels}
         onSelectElement={onSelectElement}
+        onSetReferenceElement={onSetReferenceElement}
         onSelectElements={onSelectElements}
         onDeselectElement={onDeselectElement}
         onMoveEnd={onMoveEnd}

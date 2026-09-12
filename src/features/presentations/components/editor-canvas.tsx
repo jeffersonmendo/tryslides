@@ -10,14 +10,17 @@ type EditorCanvasProps = {
   readonly canvas: { readonly width: number; readonly height: number };
   readonly emptySlideLabel: string;
   readonly selectionIds: readonly string[];
+  readonly referenceElementId: string | null;
   readonly imageUrls: Readonly<Record<string, string>>;
   readonly imageUnavailableLabel: string;
   readonly moveInstruction: string;
   readonly rotationElementLabel: string;
   readonly rotationInstruction: string;
+  readonly referenceElementLabel: string;
   readonly resizeElementLabel: string;
   readonly resizeHandleLabels: Readonly<Record<ResizeHandle, string>>;
   readonly onSelectElement: (element_id: string, additive?: boolean) => void;
+  readonly onSetReferenceElement: (element_id: string) => void;
   readonly onSelectElements: (
     element_ids: readonly string[],
     additive: boolean,
@@ -46,14 +49,17 @@ export function EditorCanvas({
   canvas,
   emptySlideLabel,
   selectionIds,
+  referenceElementId,
   imageUrls,
   imageUnavailableLabel,
   moveInstruction,
   rotationElementLabel,
   rotationInstruction,
+  referenceElementLabel,
   resizeElementLabel,
   resizeHandleLabels,
   onSelectElement,
+  onSetReferenceElement,
   onSelectElements,
   onDeselectElement,
   onMoveEnd,
@@ -94,15 +100,18 @@ export function EditorCanvas({
         canvas={canvas}
         emptySlideLabel={emptySlideLabel}
         selectionIds={selectionIds}
+        referenceElementId={referenceElementId}
         imageUrls={imageUrls}
         imageUnavailableLabel={imageUnavailableLabel}
         moveInstruction={moveInstruction}
         rotationElementLabel={rotationElementLabel}
         rotationInstruction={rotationInstruction}
+        referenceElementLabel={referenceElementLabel}
         resizeElementLabel={resizeElementLabel}
         resizeHandleLabels={resizeHandleLabels}
         slide={activeSlide}
         onSelectElement={onSelectElement}
+        onSetReferenceElement={onSetReferenceElement}
         onSelectElements={onSelectElements}
         onDeselectElement={onDeselectElement}
         onMoveEnd={onMoveEnd}

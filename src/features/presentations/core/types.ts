@@ -30,6 +30,13 @@ export type PresentationCoreError = {
 export type ElementPosition = { readonly x: number; readonly y: number };
 /** Dimensions in the presentation's fixed logical canvas. */
 export type ElementSize = { readonly width: number; readonly height: number };
+export type ElementAlignment =
+  | "left"
+  | "center"
+  | "right"
+  | "top"
+  | "middle"
+  | "bottom";
 export type PresentationCanvas = {
   readonly width: number;
   readonly height: number;
@@ -239,6 +246,13 @@ export type PresentationOperation = {
     | "create-elements"
     | "edit-element"
     | "edit-elements"
+    | "move-elements"
+    | "delete-elements"
+    | "set-elements-opacity"
+    | "rotate-elements"
+    | "align-elements-to-canvas"
+    | "align-elements-to-reference"
+    | "distribute-elements"
     | "delete-element"
     | "duplicate-element"
     | "reorder-element"
@@ -370,6 +384,31 @@ export type EditElementsInput = CommandMetadata & {
 export type DeleteElementInput = CommandMetadata & {
   slideId: string;
   elementId: string;
+};
+export type ElementsCommandInput = CommandMetadata & {
+  readonly slideId: string;
+  readonly elementIds: readonly string[];
+};
+export type MoveElementsInput = ElementsCommandInput & {
+  readonly delta: ElementPosition;
+};
+export type DeleteElementsInput = ElementsCommandInput;
+export type SetElementsOpacityInput = ElementsCommandInput & {
+  readonly opacity: number;
+};
+export type RotateElementsInput = ElementsCommandInput & {
+  readonly delta: number;
+};
+export type AlignElementsToCanvasInput = ElementsCommandInput & {
+  readonly alignment: ElementAlignment;
+};
+export type AlignElementsToReferenceInput = ElementsCommandInput & {
+  readonly referenceElementId: string;
+  readonly alignment: ElementAlignment;
+};
+export type DistributeElementsInput = ElementsCommandInput & {
+  readonly axis: "horizontal" | "vertical";
+  readonly gap: number;
 };
 export type DuplicateElementInput = CommandMetadata & {
   slideId: string;

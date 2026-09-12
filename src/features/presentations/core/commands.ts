@@ -14,6 +14,8 @@ import {
   snapshotState,
 } from "./state";
 import type {
+  AlignElementsToCanvasInput,
+  AlignElementsToReferenceInput,
   BringForwardInput,
   BringToFrontInput,
   CommandFailure,
@@ -29,7 +31,9 @@ import type {
   CreatePresentationResult,
   CreateSlideInput,
   DeleteElementInput,
+  DeleteElementsInput,
   DeleteSlideInput,
+  DistributeElementsInput,
   DuplicateElementInput,
   DuplicateSlideInput,
   EditElementInput,
@@ -38,6 +42,7 @@ import type {
   EntityRevisionTransition,
   HistoryCommandInput,
   MoveElementInput,
+  MoveElementsInput,
   OperationHistoryEntry,
   OperationSource,
   PresentationCoreErrorCode,
@@ -49,8 +54,10 @@ import type {
   ReorderSlideInput,
   ReplaceAssetInput,
   ResizeElementInput,
+  RotateElementsInput,
   SendBackwardInput,
   SendToBackInput,
+  SetElementsOpacityInput,
 } from "./types";
 import { PRESENTATION_CANVAS } from "./types";
 import {
@@ -575,6 +582,172 @@ export function editElements(
     ],
   );
 }
+/** Moves every selected element by one shared, canvas-clamped delta. */
+export function moveElements(
+  state: PresentationState,
+  input: MoveElementsInput,
+): CommandResult {
+  if (!isValidPosition(input.delta)) return failure(state, "VALIDATION_ERROR");
+  return updateElements(state, input, "move-elements", (elements) => {
+    const delta = getClampedMovementDelta(elements, input.delta, state.canvas);
+    return elements.map((element) => ({
+      ...element,
+      position: {
+        x: element.position.x + delta.x,
+        y: element.position.y + delta.y,
+      },
+      revision: element.revision + 1,
+    }));
+  });
+}
+/** Removes all requested elements as one atomic, undoable operation. */
+export function deleteElements(
+  state: PresentationState,
+  input: DeleteElementsInput,
+): CommandResult {
+  const selected = getSelectedElements(state, input);
+  if (!selected.success) return selected.result;
+  const { slideIndex, slide, elements, elementIds } = selected;
+  return succeed(
+    state,
+    "delete-elements",
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, slideIndex, {
+        ...slide,
+        revision: slide.revision + 1,
+        elements: slide.elements.filter(
+          (element) => !elementIds.has(element.id),
+        ),
+      }),
+    },
+    [
+      slideRevisionChange(slide),
+      ...elements.map((element) => ({
+        entityType: "element" as const,
+        entityId: element.id,
+        fromRevision: element.revision,
+        toRevision: null,
+      })),
+    ],
+  );
+}
+/** Applies one absolute opacity to every selected element atomically. */
+export function setElementsOpacity(
+  state: PresentationState,
+  input: SetElementsOpacityInput,
+): CommandResult {
+  if (!Number.isFinite(input.opacity) || input.opacity < 0 || input.opacity > 1)
+    return failure(state, "VALIDATION_ERROR");
+  return updateElements(state, input, "set-elements-opacity", (elements) =>
+    elements.map((element) => ({
+      ...element,
+      opacity: input.opacity,
+      revision: element.revision + 1,
+    })),
+  );
+}
+/** Adds one rotation delta to every selected element, preserving differences. */
+export function rotateElements(
+  state: PresentationState,
+  input: RotateElementsInput,
+): CommandResult {
+  if (!Number.isFinite(input.delta)) return failure(state, "VALIDATION_ERROR");
+  return updateElements(state, input, "rotate-elements", (elements) =>
+    elements.map((element) => ({
+      ...element,
+      rotation: element.rotation + input.delta,
+      revision: element.revision + 1,
+    })),
+  );
+}
+export function alignElementsToCanvas(
+  state: PresentationState,
+  input: AlignElementsToCanvasInput,
+): CommandResult {
+  if (!isValidAlignment(input.alignment))
+    return failure(state, "VALIDATION_ERROR");
+  return updateElements(state, input, "align-elements-to-canvas", (elements) =>
+    elements.map((element) => ({
+      ...element,
+      position: getAlignedPosition(element, state.canvas, input.alignment),
+      revision: element.revision + 1,
+    })),
+  );
+}
+export function alignElementsToReference(
+  state: PresentationState,
+  input: AlignElementsToReferenceInput,
+): CommandResult {
+  if (!isValidAlignment(input.alignment))
+    return failure(state, "VALIDATION_ERROR");
+  return updateElements(
+    state,
+    input,
+    "align-elements-to-reference",
+    (elements) => {
+      const reference = elements.find(
+        (element) => element.id === input.referenceElementId,
+      );
+      if (reference === undefined) return null;
+      return elements.map((element) =>
+        element.id === reference.id
+          ? element
+          : {
+              ...element,
+              position: getReferenceAlignedPosition(
+                element,
+                reference,
+                input.alignment,
+              ),
+              revision: element.revision + 1,
+            },
+      );
+    },
+  );
+}
+export function distributeElements(
+  state: PresentationState,
+  input: DistributeElementsInput,
+): CommandResult {
+  if (
+    (input.axis !== "horizontal" && input.axis !== "vertical") ||
+    !Number.isFinite(input.gap) ||
+    input.gap < 0
+  )
+    return failure(state, "VALIDATION_ERROR");
+  return updateElements(state, input, "distribute-elements", (elements) => {
+    if (elements.length < 2) return null;
+    const ordered = [...elements].sort((left, right) =>
+      input.axis === "horizontal"
+        ? left.position.x - right.position.x
+        : left.position.y - right.position.y,
+    );
+    let cursor =
+      input.axis === "horizontal"
+        ? ordered[0].position.x + ordered[0].size.width
+        : ordered[0].position.y + ordered[0].size.height;
+    const positions = new Map<string, import("./types").ElementPosition>();
+    for (const element of ordered.slice(1)) {
+      cursor += input.gap;
+      positions.set(
+        element.id,
+        input.axis === "horizontal"
+          ? { x: cursor, y: element.position.y }
+          : { x: element.position.x, y: cursor },
+      );
+      cursor +=
+        input.axis === "horizontal" ? element.size.width : element.size.height;
+    }
+    return elements.map((element) => {
+      const position = positions.get(element.id);
+      return position === undefined
+        ? element
+        : { ...element, position, revision: element.revision + 1 };
+    });
+  });
+}
 export function deleteElement(
   state: PresentationState,
   input: DeleteElementInput,
@@ -942,6 +1115,200 @@ function updateElement(
       },
     ],
   );
+}
+function updateElements(
+  state: PresentationState,
+  input:
+    | MoveElementsInput
+    | SetElementsOpacityInput
+    | RotateElementsInput
+    | AlignElementsToCanvasInput
+    | AlignElementsToReferenceInput
+    | DistributeElementsInput,
+  operation_type: PresentationOperation["type"],
+  update: (
+    elements: readonly PresentationElement[],
+  ) => readonly PresentationElement[] | null,
+): CommandResult {
+  const selected = getSelectedElements(state, input);
+  if (!selected.success) return selected.result;
+  const updated_elements = update(selected.elements);
+  if (
+    updated_elements === null ||
+    updated_elements.length !== selected.elements.length ||
+    updated_elements.some(
+      (element) =>
+        !isElementWithinCanvas(element.position, element.size, state.canvas),
+    )
+  )
+    return failure(state, "VALIDATION_ERROR");
+  const updated = new Map(
+    updated_elements
+      .filter((element, index) => element !== selected.elements[index])
+      .map((element) => [element.id, element]),
+  );
+  if (updated.size === 0) return failure(state, "VALIDATION_ERROR");
+  return succeed(
+    state,
+    operation_type,
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, selected.slideIndex, {
+        ...selected.slide,
+        revision: selected.slide.revision + 1,
+        elements: selected.slide.elements.map(
+          (element) => updated.get(element.id) ?? element,
+        ),
+      }),
+    },
+    [
+      slideRevisionChange(selected.slide),
+      ...[...updated.values()].map((element) => {
+        const previous = selected.elements.find(
+          (current) => current.id === element.id,
+        );
+        return {
+          entityType: "element" as const,
+          entityId: element.id,
+          fromRevision: previous?.revision ?? null,
+          toRevision: element.revision,
+        };
+      }),
+    ],
+  );
+}
+function getSelectedElements(
+  state: PresentationState,
+  input: { readonly slideId: string; readonly elementIds: readonly string[] },
+):
+  | {
+      readonly success: true;
+      readonly slideIndex: number;
+      readonly slide: PresentationState["slides"][number];
+      readonly elements: readonly PresentationElement[];
+      readonly elementIds: ReadonlySet<string>;
+    }
+  | { readonly success: false; readonly result: CommandFailure } {
+  const slide_index = findSlideIndex(state, input.slideId);
+  if (slide_index === -1)
+    return { success: false, result: failure(state, "SLIDE_NOT_FOUND") };
+  if (
+    input.elementIds.length === 0 ||
+    new Set(input.elementIds).size !== input.elementIds.length
+  )
+    return { success: false, result: failure(state, "VALIDATION_ERROR") };
+  const slide = state.slides[slide_index];
+  const element_ids = new Set(input.elementIds);
+  const elements = slide.elements.filter((element) =>
+    element_ids.has(element.id),
+  );
+  if (elements.length !== input.elementIds.length)
+    return { success: false, result: failure(state, "ELEMENT_NOT_FOUND") };
+  return {
+    success: true,
+    slideIndex: slide_index,
+    slide,
+    elements,
+    elementIds: element_ids,
+  };
+}
+function getClampedMovementDelta(
+  elements: readonly PresentationElement[],
+  requested: import("./types").ElementPosition,
+  canvas: PresentationState["canvas"],
+): import("./types").ElementPosition {
+  let minimum_x = -Infinity;
+  let maximum_x = Infinity;
+  let minimum_y = -Infinity;
+  let maximum_y = Infinity;
+  for (const element of elements) {
+    minimum_x = Math.max(
+      minimum_x,
+      -element.size.width / 2 - element.position.x,
+    );
+    maximum_x = Math.min(
+      maximum_x,
+      canvas.width +
+        element.size.width / 2 -
+        element.position.x -
+        element.size.width,
+    );
+    minimum_y = Math.max(
+      minimum_y,
+      -element.size.height / 2 - element.position.y,
+    );
+    maximum_y = Math.min(
+      maximum_y,
+      canvas.height +
+        element.size.height / 2 -
+        element.position.y -
+        element.size.height,
+    );
+  }
+  return {
+    x: Math.min(maximum_x, Math.max(minimum_x, requested.x)),
+    y: Math.min(maximum_y, Math.max(minimum_y, requested.y)),
+  };
+}
+function isValidAlignment(
+  value: unknown,
+): value is AlignElementsToCanvasInput["alignment"] {
+  return ["left", "center", "right", "top", "middle", "bottom"].includes(
+    value as string,
+  );
+}
+function getAlignedPosition(
+  element: PresentationElement,
+  canvas: PresentationState["canvas"],
+  alignment: AlignElementsToCanvasInput["alignment"],
+): import("./types").ElementPosition {
+  if (alignment === "left") return { x: 0, y: element.position.y };
+  if (alignment === "center")
+    return {
+      x: (canvas.width - element.size.width) / 2,
+      y: element.position.y,
+    };
+  if (alignment === "right")
+    return { x: canvas.width - element.size.width, y: element.position.y };
+  if (alignment === "top") return { x: element.position.x, y: 0 };
+  if (alignment === "middle")
+    return {
+      x: element.position.x,
+      y: (canvas.height - element.size.height) / 2,
+    };
+  return { x: element.position.x, y: canvas.height - element.size.height };
+}
+function getReferenceAlignedPosition(
+  element: PresentationElement,
+  reference: PresentationElement,
+  alignment: AlignElementsToCanvasInput["alignment"],
+): import("./types").ElementPosition {
+  if (alignment === "left")
+    return { x: reference.position.x, y: element.position.y };
+  if (alignment === "center")
+    return {
+      x: reference.position.x + (reference.size.width - element.size.width) / 2,
+      y: element.position.y,
+    };
+  if (alignment === "right")
+    return {
+      x: reference.position.x + reference.size.width - element.size.width,
+      y: element.position.y,
+    };
+  if (alignment === "top")
+    return { x: element.position.x, y: reference.position.y };
+  if (alignment === "middle")
+    return {
+      x: element.position.x,
+      y:
+        reference.position.y +
+        (reference.size.height - element.size.height) / 2,
+    };
+  return {
+    x: element.position.x,
+    y: reference.position.y + reference.size.height - element.size.height,
+  };
 }
 function moveElementByLayer(
   state: PresentationState,

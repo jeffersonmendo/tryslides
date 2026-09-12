@@ -79,6 +79,20 @@ export function ElementInspector({
 }: ElementInspectorProps) {
   return (
     <FieldGroup>
+      {element.type === "shape" ? (
+        <FieldSet>
+          <FieldLegend className="text-muted-foreground">
+            {labels.content}
+          </FieldLegend>
+          <FieldGroup className="gap-4">
+            <ShapeTypeField
+              element={element}
+              labels={labels}
+              onPatchCommit={onPatchCommit}
+            />
+          </FieldGroup>
+        </FieldSet>
+      ) : null}
       <FieldSet>
         <FieldLegend className="text-muted-foreground">
           {labels.transform}
@@ -256,6 +270,13 @@ export function ElementInspector({
               onDraftChange={(value) => onPatch({ rotation: Number(value) })}
             />
           </Field>
+        </FieldGroup>
+      </FieldSet>
+      <FieldSet>
+        <FieldLegend className="text-muted-foreground">
+          {labels.appearance}
+        </FieldLegend>
+        <FieldGroup className="gap-4">
           <Field>
             <FieldLabel htmlFor={`opacity-${element.id}`}>
               {labels.opacity}
@@ -282,13 +303,6 @@ export function ElementInspector({
               }
             />
           </Field>
-        </FieldGroup>
-      </FieldSet>
-      <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.appearance}
-        </FieldLegend>
-        <FieldGroup className="gap-4">
           {element.type === "shape" ? (
             <ShapeFields
               element={element}
@@ -369,6 +383,65 @@ function UnitDraftInput({
   );
 }
 
+function ShapeTypeField({
+  element,
+  labels,
+  onPatchCommit,
+}: {
+  readonly element: Extract<EditorElement, { readonly type: "shape" }>;
+  readonly labels: Record<string, string>;
+  readonly onPatchCommit: (patch: ElementPatch) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={`shape-type-${element.id}`}>
+        {labels.shapeType}
+      </FieldLabel>
+      <Select
+        value={element.shapeType}
+        onValueChange={(value) => {
+          if (value !== null && isShapeType(value)) {
+            onPatchCommit({ shapeType: value });
+          }
+        }}
+      >
+        <SelectTrigger id={`shape-type-${element.id}`}>
+          <SelectValue>
+            {getShapeTypeLabel(element.shapeType, labels)}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="rectangle">{labels.shapeRectangle}</SelectItem>
+            <SelectItem value="circle">{labels.shapeCircle}</SelectItem>
+            <SelectItem value="triangle">{labels.shapeTriangle}</SelectItem>
+            <SelectItem value="diamond">{labels.shapeDiamond}</SelectItem>
+            <SelectItem value="star">{labels.shapeStar}</SelectItem>
+            <SelectItem value="heart">{labels.shapeHeart}</SelectItem>
+            <SelectItem value="line">{labels.shapeLine}</SelectItem>
+            <SelectItem value="arrow">{labels.shapeArrow}</SelectItem>
+            <SelectItem value="double-arrow">
+              {labels.shapeDoubleArrow}
+            </SelectItem>
+            <SelectItem value="speech-bubble">
+              {labels.shapeSpeechBubble}
+            </SelectItem>
+            <SelectItem value="round-bubble">
+              {labels.shapeRoundBubble}
+            </SelectItem>
+            <SelectItem value="plus">{labels.shapePlus}</SelectItem>
+            <SelectItem value="minus">{labels.shapeMinus}</SelectItem>
+            <SelectItem value="multiply">{labels.shapeMultiply}</SelectItem>
+            <SelectItem value="divide">{labels.shapeDivide}</SelectItem>
+            <SelectItem value="equal">{labels.shapeEqual}</SelectItem>
+            <SelectItem value="not-equal">{labels.shapeNotEqual}</SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
 function ShapeFields({
   element,
   acceptedElement,
@@ -387,52 +460,6 @@ function ShapeFields({
 }) {
   return (
     <>
-      <Field>
-        <FieldLabel htmlFor={`shape-type-${element.id}`}>
-          {labels.shapeType}
-        </FieldLabel>
-        <Select
-          value={element.shapeType}
-          onValueChange={(value) => {
-            if (value !== null && isShapeType(value)) {
-              onPatchCommit({ shapeType: value });
-            }
-          }}
-        >
-          <SelectTrigger id={`shape-type-${element.id}`}>
-            <SelectValue>
-              {getShapeTypeLabel(element.shapeType, labels)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="rectangle">{labels.shapeRectangle}</SelectItem>
-              <SelectItem value="circle">{labels.shapeCircle}</SelectItem>
-              <SelectItem value="triangle">{labels.shapeTriangle}</SelectItem>
-              <SelectItem value="diamond">{labels.shapeDiamond}</SelectItem>
-              <SelectItem value="star">{labels.shapeStar}</SelectItem>
-              <SelectItem value="heart">{labels.shapeHeart}</SelectItem>
-              <SelectItem value="line">{labels.shapeLine}</SelectItem>
-              <SelectItem value="arrow">{labels.shapeArrow}</SelectItem>
-              <SelectItem value="double-arrow">
-                {labels.shapeDoubleArrow}
-              </SelectItem>
-              <SelectItem value="speech-bubble">
-                {labels.shapeSpeechBubble}
-              </SelectItem>
-              <SelectItem value="round-bubble">
-                {labels.shapeRoundBubble}
-              </SelectItem>
-              <SelectItem value="plus">{labels.shapePlus}</SelectItem>
-              <SelectItem value="minus">{labels.shapeMinus}</SelectItem>
-              <SelectItem value="multiply">{labels.shapeMultiply}</SelectItem>
-              <SelectItem value="divide">{labels.shapeDivide}</SelectItem>
-              <SelectItem value="equal">{labels.shapeEqual}</SelectItem>
-              <SelectItem value="not-equal">{labels.shapeNotEqual}</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
       <ColorField
         id={`fill-${element.id}`}
         label={labels.fill}

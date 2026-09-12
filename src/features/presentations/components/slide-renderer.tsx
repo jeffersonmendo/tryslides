@@ -29,14 +29,17 @@ type SlideRendererProps = {
   readonly slide: EditorSlide | null;
   readonly emptySlideLabel: string;
   readonly selectionIds: readonly string[];
+  readonly referenceElementId: string | null;
   readonly imageUrls: Readonly<Record<string, string>>;
   readonly imageUnavailableLabel: string;
   readonly moveInstruction: string;
   readonly rotationElementLabel: string;
   readonly rotationInstruction: string;
+  readonly referenceElementLabel: string;
   readonly resizeElementLabel: string;
   readonly resizeHandleLabels: Readonly<Record<ResizeHandle, string>>;
   readonly onSelectElement: (element_id: string, additive?: boolean) => void;
+  readonly onSetReferenceElement: (element_id: string) => void;
   readonly onSelectElements: (
     element_ids: readonly string[],
     additive: boolean,
@@ -65,14 +68,17 @@ export function SlideRenderer({
   slide,
   emptySlideLabel,
   selectionIds,
+  referenceElementId,
   imageUrls,
   imageUnavailableLabel,
   moveInstruction,
   rotationElementLabel,
   rotationInstruction,
+  referenceElementLabel,
   resizeElementLabel,
   resizeHandleLabels,
   onSelectElement,
+  onSetReferenceElement,
   onSelectElements,
   onDeselectElement,
   onMoveEnd,
@@ -184,7 +190,7 @@ export function SlideRenderer({
     last_drag_preview_ref.current = null;
     const source = getDragSource(event.operation.source?.id);
     if (source === undefined) return;
-    onSelectElement(source.id);
+    if (!selectionIds.includes(source.id)) onSelectElement(source.id);
   }
 
   function handleDragMove(event: DragMoveEvent) {
@@ -337,6 +343,8 @@ export function SlideRenderer({
             }
             imageUnavailableLabel={imageUnavailableLabel}
             isSelected={selectionIds.includes(element.id)}
+            isReference={referenceElementId === element.id}
+            canSetReference={selectionIds.length >= 2}
             key={element.id}
             moveInstruction={moveInstruction}
             previewPosition={preview_positions[element.id]}
@@ -344,6 +352,7 @@ export function SlideRenderer({
             resizeHandleLabels={resizeHandleLabels}
             rotationElementLabel={rotationElementLabel}
             rotationInstruction={rotationInstruction}
+            referenceElementLabel={referenceElementLabel}
             getSlidePlaneRect={() =>
               slide_plane_ref.current?.getBoundingClientRect() ?? null
             }
@@ -352,6 +361,7 @@ export function SlideRenderer({
             onTextContentChange={onTextContentChange}
             onTextContentCommit={onTextContentCommit}
             onSelect={onSelectElement}
+            onSetReference={onSetReferenceElement}
           />
         )}
       >

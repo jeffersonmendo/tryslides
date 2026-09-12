@@ -150,6 +150,21 @@
     "alignTop": "Align top",
     "alignBottom": "Align bottom",
     "bringToFront": "Bring to front",
-    "sendToBack": "Send to back"
+    "sendToBack": "Send to back",
+    "alignToCanvas": "Align to canvas",
+    "alignToReference": "Align to reference",
+    "distribution": "Distribution",
+    "distributeHorizontally": "Distribute horizontally",
+    "distributeVertically": "Distribute vertically",
+    "gap": "Gap",
+    "alignmentMiddle": "Middle",
+    "referenceAlignmentInstructionPrefix": "Use",
+    "referenceAlignmentHint": "to set or replace the alignment reference.",
+    "referenceAlignmentStatusNone": "No alignment reference is set.",
+    "referenceAlignmentStatusSet": "An alignment reference is set.",
+    "referenceAlignmentShortcut": "Shift-click",
+    "shiftKey": "Shift",
+    "clickLabel": "Click",
+    "referenceAlignmentSelected": "Alignment reference selected"
   }
 }

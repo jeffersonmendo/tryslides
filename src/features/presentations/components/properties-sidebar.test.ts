@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-test("renders a destructive deletion action after selected-element properties", () => {
+test("renders destructive deletion actions after the applicable inspector", () => {
   const sidebar_source = readFileSync(
     new URL("./properties-sidebar.tsx", import.meta.url),
     "utf8",
@@ -16,6 +16,14 @@ test("renders a destructive deletion action after selected-element properties", 
   assert.ok(
     sidebar_source.lastIndexOf("onDeleteElement") >
       sidebar_source.indexOf("<ElementInspector"),
+  );
+  assert.match(
+    sidebar_source,
+    /selection\.kind === "multiple" \? \([\s\S]*variant="destructive"[\s\S]*onClick=\{\(\) => onDeleteElements\(selection\.elementIds\)\}/,
+  );
+  assert.ok(
+    sidebar_source.indexOf("onDeleteElements(selection.elementIds)") >
+      sidebar_source.indexOf("<GroupInspector"),
   );
 });
 
@@ -201,7 +209,7 @@ test("uses pixel unit controls for dimensional style values and correct layer ic
   }
 });
 
-test("publishes group inspector values immediately and commits them at completion", () => {
+test("uses compact distribution controls and the sidebar deletion convention for group editing", () => {
   const sidebar_source = readFileSync(
     new URL("./properties-sidebar.tsx", import.meta.url),
     "utf8",
@@ -212,14 +220,34 @@ test("publishes group inspector values immediately and commits them at completio
   );
   assert.match(
     group_inspector_source,
-    /onDraftChange=\{\(value\) => onPatch\(\{ rotation: Number\(value\) \}\)\}/,
+    /<FieldLegend className="text-muted-foreground">\s*\{labels\.content\}/,
+  );
+  assert.match(group_inspector_source, /\{labels\.transform\}/);
+  assert.match(group_inspector_source, /\{labels\.appearance\}/);
+  assert.match(group_inspector_source, /\{labels\.alignToCanvas\}/);
+  assert.match(group_inspector_source, /IconLayoutAlignLeftFilled/);
+  assert.match(group_inspector_source, /IconAlignBoxLeftMiddleFilled/);
+  assert.match(group_inspector_source, /IconSpacingHorizontal/);
+  assert.match(group_inspector_source, /IconSpacingVertical/);
+  assert.match(
+    group_inspector_source,
+    /<FieldLabel>\{labels\.distribution\}<\/FieldLabel>/,
   );
   assert.match(
     group_inspector_source,
-    /onCommit=\{\(value\) => onPatchCommit\(\{ rotation: Number\(value\) \}\)\}/,
+    /aria-label=\{labels\.gap\}[\s\S]*unit="px"/,
   );
+  assert.match(group_inspector_source, /disabled=\{elements\.length < 2\}/);
+  assert.match(group_inspector_source, /<Tooltip disableHoverablePopup>/);
+  assert.match(group_inspector_source, /disabled=\{!has_reference\}/);
+  assert.doesNotMatch(
+    group_inspector_source,
+    /IconArrows(Horizontal|Vertical)/,
+  );
+  assert.doesNotMatch(group_inspector_source, /labels\.actions/);
+  assert.doesNotMatch(group_inspector_source, /<Button/);
   assert.match(
     sidebar_source,
-    /onPatchCommit=\{\(patch\) =>\s*onElementPatchCommit\(selection\.primaryElementId, patch\)\s*\}/,
+    /onPatchCommit=\{\(patch\) =>\s*onElementPatchCommit\(selection\.primaryElementId, patch\)/,
   );
 });

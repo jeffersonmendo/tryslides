@@ -10,6 +10,8 @@ import type {
   TransitionConfigurationInput,
 } from "@/features/presentations/core/presentation-core";
 import {
+  alignElementsToCanvas,
+  alignElementsToReference,
   bringForward,
   bringToFront,
   configureAnimation,
@@ -18,19 +20,24 @@ import {
   createElements,
   createSlide,
   deleteElement,
+  deleteElements,
   deleteSlide,
+  distributeElements,
   duplicateSlide,
   editElement,
   editElements,
   editSlide,
   moveElement,
+  moveElements,
   PRESENTATION_CANVAS,
   redoPresentation,
   redoSlide,
   reorderSlide,
   resizeElement,
+  rotateElements,
   sendBackward,
   sendToBack,
+  setElementsOpacity,
   undoPresentation,
   undoSlide,
 } from "@/features/presentations/core/presentation-core";
@@ -120,12 +127,78 @@ export type EditorCapability = {
     state: PresentationState,
     input: { readonly slideId: string; readonly elementId: string },
   ): PreparedPresentationCommandResult;
+  deleteElements(
+    state: PresentationState,
+    input: { readonly slideId: string; readonly elementIds: readonly string[] },
+  ): PreparedPresentationCommandResult;
   moveElement(
     state: PresentationState,
     input: {
       readonly slideId: string;
       readonly elementId: string;
       readonly position: ElementPosition;
+    },
+  ): PreparedPresentationCommandResult;
+  moveElements(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementIds: readonly string[];
+      readonly delta: ElementPosition;
+    },
+  ): PreparedPresentationCommandResult;
+  setElementsOpacity(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementIds: readonly string[];
+      readonly opacity: number;
+    },
+  ): PreparedPresentationCommandResult;
+  rotateElements(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementIds: readonly string[];
+      readonly delta: number;
+    },
+  ): PreparedPresentationCommandResult;
+  alignElementsToCanvas(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementIds: readonly string[];
+      readonly alignment:
+        | "left"
+        | "center"
+        | "right"
+        | "top"
+        | "middle"
+        | "bottom";
+    },
+  ): PreparedPresentationCommandResult;
+  alignElementsToReference(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementIds: readonly string[];
+      readonly referenceElementId: string;
+      readonly alignment:
+        | "left"
+        | "center"
+        | "right"
+        | "top"
+        | "middle"
+        | "bottom";
+    },
+  ): PreparedPresentationCommandResult;
+  distributeElements(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementIds: readonly string[];
+      readonly axis: "horizontal" | "vertical";
+      readonly gap: number;
     },
   ): PreparedPresentationCommandResult;
   resizeElement(
@@ -360,9 +433,37 @@ export function createEditorCapability(
       commands.prepare(state, (current_state, command_input) =>
         deleteElement(current_state, { ...input, ...command_input }),
       ),
+    deleteElements: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        deleteElements(current_state, { ...input, ...command_input }),
+      ),
     moveElement: (state, input) =>
       commands.prepare(state, (current_state, command_input) =>
         moveElement(current_state, { ...input, ...command_input }),
+      ),
+    moveElements: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        moveElements(current_state, { ...input, ...command_input }),
+      ),
+    setElementsOpacity: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        setElementsOpacity(current_state, { ...input, ...command_input }),
+      ),
+    rotateElements: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        rotateElements(current_state, { ...input, ...command_input }),
+      ),
+    alignElementsToCanvas: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        alignElementsToCanvas(current_state, { ...input, ...command_input }),
+      ),
+    alignElementsToReference: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        alignElementsToReference(current_state, { ...input, ...command_input }),
+      ),
+    distributeElements: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        distributeElements(current_state, { ...input, ...command_input }),
       ),
     resizeElement: (state, input) =>
       commands.prepare(state, (current_state, command_input) =>

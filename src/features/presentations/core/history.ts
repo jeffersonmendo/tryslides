@@ -69,6 +69,13 @@ function isSlideScopedOperation(
     case "create-elements":
     case "edit-element":
     case "edit-elements":
+    case "move-elements":
+    case "delete-elements":
+    case "set-elements-opacity":
+    case "rotate-elements":
+    case "align-elements-to-canvas":
+    case "align-elements-to-reference":
+    case "distribute-elements":
     case "delete-element":
     case "duplicate-element":
     case "reorder-element":

@@ -6,6 +6,8 @@ import {
   ANIMATION_CAPABILITIES,
   confirmPresentationPublished,
   confirmPresentationSaved,
+  alignElementsToCanvas as coreAlignElementsToCanvas,
+  alignElementsToReference as coreAlignElementsToReference,
   bringForward as coreBringForward,
   bringToFront as coreBringToFront,
   configureAnimation as coreConfigureAnimation,
@@ -14,20 +16,25 @@ import {
   createElements as coreCreateElements,
   createSlide as coreCreateSlide,
   deleteElement as coreDeleteElement,
+  deleteElements as coreDeleteElements,
   deleteSlide as coreDeleteSlide,
+  distributeElements as coreDistributeElements,
   duplicateElement as coreDuplicateElement,
   duplicateSlide as coreDuplicateSlide,
   editElement as coreEditElement,
   editElements as coreEditElements,
   editSlide as coreEditSlide,
   moveElement as coreMoveElement,
+  moveElements as coreMoveElements,
   renamePresentation as coreRenamePresentation,
   reorderElement as coreReorderElement,
   reorderSlide as coreReorderSlide,
   replaceAsset as coreReplaceAsset,
   resizeElement as coreResizeElement,
+  rotateElements as coreRotateElements,
   sendBackward as coreSendBackward,
   sendToBack as coreSendToBack,
+  setElementsOpacity as coreSetElementsOpacity,
   createPresentation,
   createPresentationDeletionIntent,
   deserializePresentationState,
@@ -99,6 +106,10 @@ const create_element = withUpdatedAt(coreCreateElement);
 const create_elements = withUpdatedAt(coreCreateElements);
 const edit_element = withUpdatedAt(coreEditElement);
 const edit_elements = withUpdatedAt(coreEditElements);
+const align_elements_to_canvas = withUpdatedAt(coreAlignElementsToCanvas);
+const align_elements_to_reference = withUpdatedAt(coreAlignElementsToReference);
+const delete_elements = withUpdatedAt(coreDeleteElements);
+const distribute_elements = withUpdatedAt(coreDistributeElements);
 const delete_element = withUpdatedAt(coreDeleteElement);
 const duplicate_element = withUpdatedAt(coreDuplicateElement);
 const reorder_element = withUpdatedAt(coreReorderElement);
@@ -107,7 +118,10 @@ const send_backward = withUpdatedAt(coreSendBackward);
 const bring_to_front = withUpdatedAt(coreBringToFront);
 const send_to_back = withUpdatedAt(coreSendToBack);
 const move_element = withUpdatedAt(coreMoveElement);
+const move_elements = withUpdatedAt(coreMoveElements);
 const resize_element = withUpdatedAt(coreResizeElement);
+const rotate_elements = withUpdatedAt(coreRotateElements);
+const set_elements_opacity = withUpdatedAt(coreSetElementsOpacity);
 const replace_asset = withUpdatedAt(coreReplaceAsset);
 const configure_animation = withUpdatedAt(coreConfigureAnimation);
 const configure_transition = withUpdatedAt(coreConfigureTransition);
@@ -392,6 +406,204 @@ test("edits multiple elements atomically and restores every element through undo
   assert.equal(invalid.success, false);
   assert.equal(invalid.error.code, "VALIDATION_ERROR");
   assert.deepEqual(invalid.state, created.state);
+});
+
+test("applies atomic group operations, serializes them, and rejects invalid layouts", () => {
+  const created = create_elements(createStateWithSlide(), {
+    slideId: "slide_1",
+    elements: [
+      {
+        id: "one",
+        type: "shape",
+        shapeType: "rectangle",
+        position: { x: 0, y: 0 },
+        size: { width: 100, height: 100 },
+        rotation: 10,
+        opacity: 1,
+      },
+      {
+        id: "two",
+        type: "shape",
+        shapeType: "rectangle",
+        position: { x: 300, y: 100 },
+        size: { width: 200, height: 100 },
+        rotation: 20,
+        opacity: 1,
+      },
+      {
+        id: "three",
+        type: "shape",
+        shapeType: "rectangle",
+        position: { x: 700, y: 200 },
+        size: { width: 100, height: 100 },
+        rotation: 30,
+        opacity: 1,
+      },
+    ],
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const moved = move_elements(created.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+    delta: { x: -1000, y: 50 },
+  });
+  assert.equal(moved.success, true);
+  if (!moved.success) return;
+  assert.equal(moved.operation.type, "move-elements");
+  assert.deepEqual(
+    moved.state.slides[0]?.elements.map((element) => element.position.x),
+    [-50, 250, 650],
+  );
+  const rotated = rotate_elements(moved.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+    delta: 15,
+  });
+  assert.equal(rotated.success, true);
+  if (!rotated.success) return;
+  assert.deepEqual(
+    rotated.state.slides[0]?.elements.map((element) => element.rotation),
+    [25, 35, 45],
+  );
+  const opaque = set_elements_opacity(rotated.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+    opacity: 0.4,
+  });
+  assert.equal(opaque.success, true);
+  if (!opaque.success) return;
+  assert.deepEqual(
+    opaque.state.slides[0]?.elements.map((element) => element.opacity),
+    [0.4, 0.4, 0.4],
+  );
+  const aligned = align_elements_to_canvas(opaque.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+    alignment: "left",
+  });
+  assert.equal(aligned.success, true);
+  if (!aligned.success) return;
+  const referenced = align_elements_to_reference(aligned.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+    referenceElementId: "two",
+    alignment: "middle",
+  });
+  assert.equal(referenced.success, true);
+  if (!referenced.success) return;
+  assert.equal(
+    referenced.state.slides[0]?.elements[1]?.position.y,
+    moved.state.slides[0]?.elements[1]?.position.y,
+  );
+  const distributed = distribute_elements(referenced.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+    axis: "horizontal",
+    gap: 40,
+  });
+  assert.equal(distributed.success, true);
+  if (!distributed.success) return;
+  assert.deepEqual(
+    distributed.state.slides[0]?.elements.map((element) => element.position),
+    [
+      { x: 0, y: 150 },
+      { x: 140, y: 150 },
+      { x: 380, y: 150 },
+    ],
+  );
+  const serialized = serializePresentationState(distributed.state);
+  assert.equal(serialized.success, true);
+  const invalid = distribute_elements(distributed.state, {
+    slideId: "slide_1",
+    elementIds: ["one"],
+    axis: "horizontal",
+    gap: 40,
+  });
+  assert.equal(invalid.success, false);
+  assert.deepEqual(invalid.state, distributed.state);
+  const deleted = delete_elements(distributed.state, {
+    slideId: "slide_1",
+    elementIds: ["one", "two", "three"],
+  });
+  assert.equal(deleted.success, true);
+  if (!deleted.success) return;
+  const deleted_serialized = serializePresentationState(deleted.state);
+  assert.equal(deleted_serialized.success, true);
+  if (!deleted_serialized.success) return;
+  const restored = deserializePresentationState(
+    deleted_serialized.serializedState,
+  );
+  assert.equal(restored.success, true);
+  if (!restored.success) return;
+  assert.deepEqual(restored.state, deleted.state);
+  const undone = undo(restored.state);
+  assert.equal(undone.success, true);
+  assert.equal(undone.state.slides[0]?.elements.length, 3);
+});
+
+test("distributes exactly two elements by the selected axis without a reference", () => {
+  const created = create_elements(createStateWithSlide(), {
+    slideId: "slide_1",
+    elements: [
+      {
+        id: "later",
+        type: "shape",
+        shapeType: "rectangle",
+        position: { x: 600, y: 800 },
+        size: { width: 100, height: 100 },
+        rotation: 0,
+        opacity: 1,
+      },
+      {
+        id: "earlier",
+        type: "shape",
+        shapeType: "rectangle",
+        position: { x: 200, y: 300 },
+        size: { width: 200, height: 100 },
+        rotation: 0,
+        opacity: 1,
+      },
+    ],
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const horizontally_distributed = distribute_elements(created.state, {
+    slideId: "slide_1",
+    elementIds: ["later", "earlier"],
+    axis: "horizontal",
+    gap: 40,
+  });
+  assert.equal(horizontally_distributed.success, true);
+  if (!horizontally_distributed.success) return;
+  assert.deepEqual(
+    horizontally_distributed.state.slides[0]?.elements.map(
+      (element) => element.position,
+    ),
+    [
+      { x: 440, y: 800 },
+      { x: 200, y: 300 },
+    ],
+  );
+
+  const vertically_distributed = distribute_elements(created.state, {
+    slideId: "slide_1",
+    elementIds: ["later", "earlier"],
+    axis: "vertical",
+    gap: 25,
+  });
+  assert.equal(vertically_distributed.success, true);
+  if (!vertically_distributed.success) return;
+  assert.deepEqual(
+    vertically_distributed.state.slides[0]?.elements.map(
+      (element) => element.position,
+    ),
+    [
+      { x: 600, y: 425 },
+      { x: 200, y: 300 },
+    ],
+  );
 });
 
 test("resizes text freely and restores text layer changes through undo and redo", () => {

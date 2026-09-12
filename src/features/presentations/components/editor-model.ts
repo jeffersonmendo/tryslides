@@ -81,4 +81,5 @@ export type EditorSelection =
       readonly kind: "multiple";
       readonly elementIds: readonly string[];
       readonly primaryElementId: string;
+      readonly referenceElementId: string | null;
     };

@@ -82,6 +82,29 @@ test("loads distinct image assets referenced by every effective slide", () => {
   assert.match(source, /getImageUrlRecordIfChanged\(\s*current/);
 });
 
+test("preserves selection, replaces the alignment reference, and reconciles it", () => {
+  const source = readFileSync(
+    new URL("./editor-controller.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /onSetReferenceElement=\{\(element_id\) =>/);
+  assert.match(
+    source,
+    /!current_selection\.elementIds\.includes\(element_id\)/,
+  );
+  assert.match(
+    source,
+    /\.\.\.current_selection,\s*referenceElementId: element_id/,
+  );
+  assert.doesNotMatch(source, /current_selection\.referenceElementId === null/);
+  assert.match(
+    source,
+    /referenceElementId: ids\.includes\(reference_id \?\? ""\) \? reference_id : null/,
+  );
+  assert.match(source, /referenceElementId: reference_element_id/);
+});
+
 test("uses independent active-slide and presentation history after drafts flush", () => {
   assert.match(
     source,

@@ -26,11 +26,14 @@ type EditorElementProps = {
   readonly canvas: { readonly width: number; readonly height: number };
   readonly element: EditorElement;
   readonly isSelected: boolean;
+  readonly isReference: boolean;
+  readonly canSetReference: boolean;
   readonly imageUrl: string | null;
   readonly imageUnavailableLabel: string;
   readonly moveInstruction: string;
   readonly rotationElementLabel: string;
   readonly rotationInstruction: string;
+  readonly referenceElementLabel: string;
   readonly previewPosition:
     | { readonly x: number; readonly y: number }
     | undefined;
@@ -47,6 +50,7 @@ type EditorElementProps = {
     rotation: number,
   ) => Promise<DragCommitResult>;
   readonly onSelect: (element_id: string, additive?: boolean) => void;
+  readonly onSetReference: (element_id: string) => void;
   readonly onTextContentChange: (content: string) => void;
   readonly onTextContentCommit: (content: string) => void;
 };
@@ -55,11 +59,14 @@ export function EditorElementView({
   canvas,
   element,
   isSelected,
+  isReference,
+  canSetReference,
   imageUrl,
   imageUnavailableLabel,
   moveInstruction,
   rotationElementLabel,
   rotationInstruction,
+  referenceElementLabel,
   previewPosition,
   resizeElementLabel,
   resizeHandleLabels,
@@ -67,6 +74,7 @@ export function EditorElementView({
   onResizeEnd,
   onRotateEnd,
   onSelect,
+  onSetReference,
   onTextContentChange,
   onTextContentCommit,
 }: EditorElementProps) {
@@ -307,7 +315,7 @@ export function EditorElementView({
     width: preview_bounds?.width ?? element.size.width,
   };
   const handle_size = 12;
-  const border_width = 1;
+  const border_width = isReference ? 2 : 1;
   const rotation_offset = 24;
   const rotation_button_size = 20;
   const north_handle_size =
@@ -346,22 +354,39 @@ export function EditorElementView({
       >
         <button
           ref={handleRef}
-          aria-label={`${element.type}. ${moveInstruction}`}
+          aria-label={`${element.type}. ${moveInstruction}${isReference ? `. ${referenceElementLabel}` : ""}`}
           aria-pressed={isSelected}
           className="absolute inset-0 cursor-grab border-0 bg-transparent p-0 text-left focus-visible:outline-none active:cursor-grabbing"
           type="button"
-          onClick={(event) =>
-            onSelect(element.id, event.metaKey || event.ctrlKey)
-          }
+          onClick={(event) => {
+            if (event.shiftKey && isSelected && canSetReference) {
+              event.preventDefault();
+              event.stopPropagation();
+              onSetReference(element.id);
+              return;
+            }
+            onSelect(element.id, event.metaKey || event.ctrlKey);
+          }}
           onFocus={() => onSelect(element.id)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault();
+            if (event.shiftKey && isSelected && canSetReference) {
+              event.stopPropagation();
+              onSetReference(element.id);
+              return;
+            }
             onSelect(element.id, event.metaKey || event.ctrlKey);
           }}
-          onPointerDown={(event) =>
-            onSelect(element.id, event.metaKey || event.ctrlKey)
-          }
+          onPointerDown={(event) => {
+            if (event.shiftKey && isSelected && canSetReference) {
+              event.preventDefault();
+              event.stopPropagation();
+              onSetReference(element.id);
+              return;
+            }
+            onSelect(element.id, event.metaKey || event.ctrlKey);
+          }}
         >
           <div
             className="absolute inset-0"

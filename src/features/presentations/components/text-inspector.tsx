@@ -147,15 +147,43 @@ export function TextInspector({
         <FieldLegend className="text-muted-foreground">
           {labels.content}
         </FieldLegend>
-        <Field>
-          <InspectorDraftTextarea
-            aria-label={labels.content}
-            id={`text-content-${text.id}`}
-            value={text.content}
-            onCommit={onContentCommit}
-            onDraftChange={onContentChange}
-          />
-        </Field>
+        <FieldGroup className="gap-4">
+          <Field>
+            <InspectorDraftTextarea
+              aria-label={labels.content}
+              id={`text-content-${text.id}`}
+              value={text.content}
+              onCommit={onContentCommit}
+              onDraftChange={onContentChange}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>{labels.role}</FieldLabel>
+            <Select
+              value={text.style.role}
+              onValueChange={(role) => {
+                if (role !== null && isTextRole(role)) {
+                  onStyleApply({ role, ...getTextRolePreset(role) });
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue>
+                  {getTextRoleLabel(text.style.role, labels)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {TEXT_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {getTextRoleLabel(role, labels)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldGroup>
       </FieldSet>
       <FieldSet>
         <FieldLegend className="text-muted-foreground">
@@ -303,6 +331,13 @@ export function TextInspector({
               onDraftChange={(value) => onPatch({ rotation: Number(value) })}
             />
           </Field>
+        </FieldGroup>
+      </FieldSet>
+      <FieldSet>
+        <FieldLegend className="text-muted-foreground">
+          {labels.appearance}
+        </FieldLegend>
+        <FieldGroup className="gap-4">
           <Field>
             <FieldLabel htmlFor={`opacity-${text.id}`}>
               {labels.opacity}
@@ -327,39 +362,6 @@ export function TextInspector({
                 onPatch({ opacity: Number(value) / 100 })
               }
             />
-          </Field>
-        </FieldGroup>
-      </FieldSet>
-      <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.appearance}
-        </FieldLegend>
-        <FieldGroup className="gap-4">
-          <Field>
-            <FieldLabel>{labels.role}</FieldLabel>
-            <Select
-              value={text.style.role}
-              onValueChange={(role) => {
-                if (role !== null && isTextRole(role)) {
-                  onStyleApply({ role, ...getTextRolePreset(role) });
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue>
-                  {getTextRoleLabel(text.style.role, labels)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {TEXT_ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {getTextRoleLabel(role, labels)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor={`text-font-size-${text.id}`}>

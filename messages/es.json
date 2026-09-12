@@ -150,6 +150,21 @@
     "alignTop": "Alinear arriba",
     "alignBottom": "Alinear abajo",
     "bringToFront": "Traer al frente",
-    "sendToBack": "Enviar al fondo"
+    "sendToBack": "Enviar al fondo",
+    "alignToCanvas": "Alinear al lienzo",
+    "alignToReference": "Alinear a la referencia",
+    "distribution": "Distribución",
+    "distributeHorizontally": "Distribuir horizontalmente",
+    "distributeVertically": "Distribuir verticalmente",
+    "gap": "Espacio",
+    "alignmentMiddle": "Centro vertical",
+    "referenceAlignmentInstructionPrefix": "Usa",
+    "referenceAlignmentHint": "para establecer o reemplazar la referencia de alineación.",
+    "referenceAlignmentStatusNone": "No hay una referencia de alineación establecida.",
+    "referenceAlignmentStatusSet": "Hay una referencia de alineación establecida.",
+    "referenceAlignmentShortcut": "Mayús-clic",
+    "shiftKey": "Mayús",
+    "clickLabel": "Clic",
+    "referenceAlignmentSelected": "Referencia de alineación seleccionada"
   }
 }

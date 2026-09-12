@@ -7,14 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "bun test",
-    "test:dom": "bun test --path-ignore-patterns=\"\" --preload ./test-setup.ts src/components/ui/color.test.tsx src/features/presentations/components/text-inspector.native-color.test.tsx",
+    "test": "bun test && bun run test:dom",
+    "test:dom": "bun test --path-ignore-patterns=\"\" --preload ./test-setup.ts src/components/ui/color.test.tsx src/features/presentations/components/inspector-section-order.test.tsx src/features/presentations/components/text-inspector.native-color.test.tsx",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write",
     "format:check": "biome format",
-    "check": "bun run lint && bun run typecheck && bun run test",
-    "check:all": "bun run check && bun run build",
+    "check": "biome format --write && bun run lint && bun run typecheck && bun run test",
+    "check:all": "biome format --write &&bun run check && bun run build",
     "prepare": "husky"
   },
   "lint-staged": {

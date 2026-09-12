@@ -32,6 +32,7 @@ function haveSameSelection(
     if (next.kind !== "multiple") return false;
     if (
       current.primaryElementId !== next.primaryElementId ||
+      current.referenceElementId !== next.referenceElementId ||
       current.elementIds.length !== next.elementIds.length
     )
       return false;

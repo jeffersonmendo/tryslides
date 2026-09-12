@@ -55,6 +55,21 @@ type PropertiesSidebarProps = {
     readonly size: string;
     readonly rotation: string;
     readonly opacity: string;
+    readonly alignToCanvas: string;
+    readonly alignToReference: string;
+    readonly distribution: string;
+    readonly distributeHorizontally: string;
+    readonly distributeVertically: string;
+    readonly gap: string;
+    readonly alignmentMiddle: string;
+    readonly referenceAlignmentInstructionPrefix: string;
+    readonly referenceAlignmentHint: string;
+    readonly referenceAlignmentStatusNone: string;
+    readonly referenceAlignmentStatusSet: string;
+    readonly referenceAlignmentShortcut: string;
+    readonly shiftKey: string;
+    readonly clickLabel: string;
+    readonly referenceAlignmentSelected: string;
     readonly width: string;
     readonly height: string;
     readonly moveForward: string;
@@ -96,6 +111,29 @@ type PropertiesSidebarProps = {
     alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
   ) => void;
   readonly onDeleteElement: (element_id: string) => void;
+  readonly onDeleteElements: (element_ids: readonly string[]) => void;
+  readonly onRotateElements: (
+    element_ids: readonly string[],
+    delta: number,
+  ) => void;
+  readonly onSetElementsOpacity: (
+    element_ids: readonly string[],
+    opacity: number,
+  ) => void;
+  readonly onAlignElementsToCanvas: (
+    element_ids: readonly string[],
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
+  ) => void;
+  readonly onAlignElementsToReference: (
+    element_ids: readonly string[],
+    reference_element_id: string,
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
+  ) => void;
+  readonly onDistributeElements: (
+    element_ids: readonly string[],
+    axis: "horizontal" | "vertical",
+    gap: number,
+  ) => void;
   readonly onDuplicateSlide: () => void;
   readonly onDeleteSlide: () => void;
   readonly onBackgroundChange: (background: SlideBackground) => void;
@@ -133,6 +171,12 @@ export function PropertiesSidebar({
   onSendToBack: on_send_to_back,
   onAlign: on_align,
   onDeleteElement,
+  onDeleteElements,
+  onRotateElements,
+  onSetElementsOpacity,
+  onAlignElementsToCanvas,
+  onAlignElementsToReference,
+  onDistributeElements,
   onDuplicateSlide: on_duplicate_slide,
   onDeleteSlide: on_delete_slide,
   onBackgroundChange,
@@ -217,12 +261,39 @@ export function PropertiesSidebar({
           elements={activeSlide.elements.filter((element) =>
             selection.elementIds.includes(element.id),
           )}
+          referenceElementId={selection.referenceElementId}
           labels={labels}
-          onPatch={(patch) => onElementPatch(selection.primaryElementId, patch)}
           onPatchCommit={(patch) =>
             onElementPatchCommit(selection.primaryElementId, patch)
           }
+          onRotate={(delta) => onRotateElements(selection.elementIds, delta)}
+          onOpacity={(opacity) =>
+            onSetElementsOpacity(selection.elementIds, opacity)
+          }
+          onAlignToCanvas={(alignment) =>
+            onAlignElementsToCanvas(selection.elementIds, alignment)
+          }
+          onAlignToReference={(alignment) => {
+            if (selection.referenceElementId !== null)
+              onAlignElementsToReference(
+                selection.elementIds,
+                selection.referenceElementId,
+                alignment,
+              );
+          }}
+          onDistribute={(axis, gap) =>
+            onDistributeElements(selection.elementIds, axis, gap)
+          }
         />
+      ) : null}
+      {selection.kind === "multiple" ? (
+        <Button
+          className="w-full"
+          variant="destructive"
+          onClick={() => onDeleteElements(selection.elementIds)}
+        >
+          {labels.deleteElement}
+        </Button>
       ) : null}
       {selectedElement !== null ? (
         <Button

@@ -231,6 +231,7 @@ test("does not publish equivalent selection writes", () => {
     kind: "multiple",
     elementIds: ["text_1", "shape_1"],
     primaryElementId: "shape_1",
+    referenceElementId: null,
   });
   const selected_state = store.getState();
   assert.equal(notifications, 2);
@@ -239,6 +240,7 @@ test("does not publish equivalent selection writes", () => {
     kind: "multiple",
     elementIds: ["shape_1", "text_1"],
     primaryElementId: "shape_1",
+    referenceElementId: null,
   });
   assert.equal(store.getState(), selected_state);
   assert.equal(notifications, 2);
@@ -257,17 +259,38 @@ test("publishes real selection changes", () => {
     kind: "multiple",
     elementIds: ["text_1", "shape_1"],
     primaryElementId: "shape_1",
+    referenceElementId: null,
   });
   store.getState().setSelection({
     kind: "multiple",
     elementIds: ["text_1", "shape_1"],
     primaryElementId: "text_1",
+    referenceElementId: "shape_1",
   });
   store.getState().setSelection({ kind: "none" });
 
   assert.equal(notifications, 4);
   assert.deepEqual(store.getState().selection, { kind: "none" });
   unsubscribe();
+});
+
+test("allows a selected element to replace the current alignment reference", () => {
+  const store = createEditorStore();
+  const selection = {
+    kind: "multiple" as const,
+    elementIds: ["text_1", "shape_1"],
+    primaryElementId: "text_1",
+  };
+
+  store.getState().setSelection({ ...selection, referenceElementId: "text_1" });
+  store
+    .getState()
+    .setSelection({ ...selection, referenceElementId: "shape_1" });
+
+  assert.deepEqual(store.getState().selection, {
+    ...selection,
+    referenceElementId: "shape_1",
+  });
 });
 
 test("coalesces rapid color previews and clears the final draft after Core acceptance", () => {

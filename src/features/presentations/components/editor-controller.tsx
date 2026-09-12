@@ -561,6 +561,23 @@ export function EditorController({
         size: t("size"),
         rotation: t("rotation"),
         opacity: t("opacity"),
+        alignToCanvas: t("alignToCanvas"),
+        alignToReference: t("alignToReference"),
+        distribution: t("distribution"),
+        distributeHorizontally: t("distributeHorizontally"),
+        distributeVertically: t("distributeVertically"),
+        gap: t("gap"),
+        alignmentMiddle: t("alignmentMiddle"),
+        referenceAlignmentInstructionPrefix: t(
+          "referenceAlignmentInstructionPrefix",
+        ),
+        referenceAlignmentHint: t("referenceAlignmentHint"),
+        referenceAlignmentStatusNone: t("referenceAlignmentStatusNone"),
+        referenceAlignmentStatusSet: t("referenceAlignmentStatusSet"),
+        referenceAlignmentShortcut: t("referenceAlignmentShortcut"),
+        shiftKey: t("shiftKey"),
+        clickLabel: t("clickLabel"),
+        referenceAlignmentSelected: t("referenceAlignmentSelected"),
         width: t("width"),
         height: t("height"),
         x: t("x"),
@@ -724,6 +741,18 @@ export function EditorController({
             ),
           );
       }}
+      onSetReferenceElement={(element_id) => {
+        const current_selection = store.getState().selection;
+        if (
+          current_selection.kind !== "multiple" ||
+          !current_selection.elementIds.includes(element_id)
+        )
+          return;
+        store.getState().setSelection({
+          ...current_selection,
+          referenceElementId: element_id,
+        });
+      }}
       onSelectElements={(element_ids, additive) => {
         const elements =
           getActiveSlide(status.state.slides, active_slide_id)?.elements ?? [];
@@ -735,7 +764,16 @@ export function EditorController({
         );
         store
           .getState()
-          .setSelection(createSelection(elements, valid_ids, valid_ids.at(-1)));
+          .setSelection(
+            createSelection(
+              elements,
+              valid_ids,
+              valid_ids.at(-1),
+              selection.kind === "multiple"
+                ? selection.referenceElementId
+                : null,
+            ),
+          );
       }}
       onDeselectElement={() => store.getState().setSelection({ kind: "none" })}
       onTextContentChange={(content) => {
@@ -768,13 +806,26 @@ export function EditorController({
       }}
       onMoveEnd={async (element_id, x, y) => {
         if (active_slide_id === null) return { persisted: false };
-        return runCommand((state) =>
-          capability.moveElement(state, {
-            slideId: active_slide_id,
-            elementId: element_id,
-            position: { x, y },
-          }),
-        );
+        return runCommand((state) => {
+          const element = getActiveSlide(
+            state.slides,
+            active_slide_id,
+          )?.elements.find((current) => current.id === element_id);
+          const element_ids = getSelectionIds(selection);
+          return selection.kind === "multiple" &&
+            element_ids.includes(element_id) &&
+            element !== undefined
+            ? capability.moveElements(state, {
+                slideId: active_slide_id,
+                elementIds: element_ids,
+                delta: { x: x - element.position.x, y: y - element.position.y },
+              })
+            : capability.moveElement(state, {
+                slideId: active_slide_id,
+                elementId: element_id,
+                position: { x, y },
+              });
+        });
       }}
       onResizeEnd={(element_id, position, size) => {
         if (active_slide_id === null)
@@ -909,6 +960,72 @@ export function EditorController({
           capability.deleteElement(state, {
             slideId: active_slide_id,
             elementId: element_id,
+          }),
+        );
+      }}
+      onDeleteElements={(element_ids) => {
+        if (active_slide_id === null) return;
+        scheduler_ref.current?.flushAll();
+        void runCommand((state) =>
+          capability.deleteElements(state, {
+            slideId: active_slide_id,
+            elementIds: element_ids,
+          }),
+        );
+      }}
+      onRotateElements={(element_ids, delta) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.rotateElements(state, {
+            slideId: active_slide_id,
+            elementIds: element_ids,
+            delta,
+          }),
+        );
+      }}
+      onSetElementsOpacity={(element_ids, opacity) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.setElementsOpacity(state, {
+            slideId: active_slide_id,
+            elementIds: element_ids,
+            opacity,
+          }),
+        );
+      }}
+      onAlignElementsToCanvas={(element_ids, alignment) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.alignElementsToCanvas(state, {
+            slideId: active_slide_id,
+            elementIds: element_ids,
+            alignment,
+          }),
+        );
+      }}
+      onAlignElementsToReference={(
+        element_ids,
+        reference_element_id,
+        alignment,
+      ) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.alignElementsToReference(state, {
+            slideId: active_slide_id,
+            elementIds: element_ids,
+            referenceElementId: reference_element_id,
+            alignment,
+          }),
+        );
+      }}
+      onDistributeElements={(element_ids, axis, gap) => {
+        if (active_slide_id === null) return;
+        void runCommand((state) =>
+          capability.distributeElements(state, {
+            slideId: active_slide_id,
+            elementIds: element_ids,
+            axis,
+            gap,
           }),
         );
       }}
@@ -1112,7 +1229,12 @@ function getSelection(
     const element_ids = selection.elementIds.filter((id) =>
       elements.some((element) => element.id === id),
     );
-    return createSelection(elements, element_ids, selection.primaryElementId);
+    return createSelection(
+      elements,
+      element_ids,
+      selection.primaryElementId,
+      selection.referenceElementId,
+    );
   }
   return getActiveSlide(state.slides, active_slide_id)?.elements.some(
     (element) =>
@@ -1143,7 +1265,12 @@ function getNextSelection(
   const ids = new Set(getSelectionIds(selection));
   if (ids.has(element.id)) ids.delete(element.id);
   else ids.add(element.id);
-  return createSelection(elements, [...ids], element.id);
+  return createSelection(
+    elements,
+    [...ids],
+    element.id,
+    selection.kind === "multiple" ? selection.referenceElementId : null,
+  );
 }
 
 function createSelection(
@@ -1153,6 +1280,7 @@ function createSelection(
   }[],
   ids: readonly string[],
   primary_id: string | undefined,
+  reference_id: string | null = null,
 ): EditorSelection {
   if (ids.length === 0) return { kind: "none" };
   const primary =
@@ -1163,7 +1291,8 @@ function createSelection(
   return {
     kind: "multiple",
     elementIds: ids,
-    primaryElementId: primary_id ?? ids[0],
+    primaryElementId: primary?.id ?? ids[0] ?? "",
+    referenceElementId: ids.includes(reference_id ?? "") ? reference_id : null,
   };
 }
 

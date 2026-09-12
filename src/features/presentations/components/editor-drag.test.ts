@@ -585,7 +585,7 @@ test("keeps the drag source enabled while selecting an unselected element", () =
   assert.match(source, /disabled: shouldDisableElementDrag\(is_editing_text\)/);
   assert.match(
     source,
-    /onPointerDown=\{\(event\) =>\s*onSelect\(element\.id, event\.metaKey \|\| event\.ctrlKey\)\s*\}/,
+    /onPointerDown=\{\(event\) => \{[\s\S]*?onSelect\(element\.id, event\.metaKey \|\| event\.ctrlKey\);\s*\}\}/,
   );
 });
 

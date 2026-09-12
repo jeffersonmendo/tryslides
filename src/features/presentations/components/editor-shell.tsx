@@ -101,6 +101,21 @@ type EditorShellProps = {
     readonly size: string;
     readonly rotation: string;
     readonly opacity: string;
+    readonly alignToCanvas: string;
+    readonly alignToReference: string;
+    readonly distribution: string;
+    readonly distributeHorizontally: string;
+    readonly distributeVertically: string;
+    readonly gap: string;
+    readonly alignmentMiddle: string;
+    readonly referenceAlignmentInstructionPrefix: string;
+    readonly referenceAlignmentHint: string;
+    readonly referenceAlignmentStatusNone: string;
+    readonly referenceAlignmentStatusSet: string;
+    readonly referenceAlignmentShortcut: string;
+    readonly shiftKey: string;
+    readonly clickLabel: string;
+    readonly referenceAlignmentSelected: string;
     readonly width: string;
     readonly height: string;
     readonly x: string;
@@ -146,6 +161,7 @@ type EditorShellProps = {
   readonly onRedoPresentation: () => void;
   readonly onSelectSlide: (slide_id: string) => void;
   readonly onSelectElement: (element_id: string, additive?: boolean) => void;
+  readonly onSetReferenceElement: (element_id: string) => void;
   readonly onSelectElements: (
     element_ids: readonly string[],
     additive: boolean,
@@ -184,6 +200,29 @@ type EditorShellProps = {
     alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
   ) => void;
   readonly onDeleteElement: (element_id: string) => void;
+  readonly onDeleteElements: (element_ids: readonly string[]) => void;
+  readonly onRotateElements: (
+    element_ids: readonly string[],
+    delta: number,
+  ) => void;
+  readonly onSetElementsOpacity: (
+    element_ids: readonly string[],
+    opacity: number,
+  ) => void;
+  readonly onAlignElementsToCanvas: (
+    element_ids: readonly string[],
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
+  ) => void;
+  readonly onAlignElementsToReference: (
+    element_ids: readonly string[],
+    reference_element_id: string,
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom",
+  ) => void;
+  readonly onDistributeElements: (
+    element_ids: readonly string[],
+    axis: "horizontal" | "vertical",
+    gap: number,
+  ) => void;
   readonly onBackgroundChange: (background: SlideBackground) => void;
   readonly onBackgroundCommit: (background: SlideBackground) => void;
   readonly onTransitionChange: (
@@ -223,6 +262,7 @@ export function EditorShell({
   onRedoPresentation,
   onSelectSlide,
   onSelectElement,
+  onSetReferenceElement,
   onSelectElements,
   onDeselectElement,
   onTextContentChange,
@@ -241,6 +281,12 @@ export function EditorShell({
   onSendToBack: on_send_to_back,
   onAlignElement: on_align_element,
   onDeleteElement,
+  onDeleteElements,
+  onRotateElements,
+  onSetElementsOpacity,
+  onAlignElementsToCanvas,
+  onAlignElementsToReference,
+  onDistributeElements,
   onBackgroundChange,
   onBackgroundCommit,
   onTransitionChange,
@@ -295,8 +341,14 @@ export function EditorShell({
             canvas={canvas}
             labels={labels}
             selectionIds={getSelectionIds(selection)}
+            referenceElementId={
+              selection.kind === "multiple"
+                ? selection.referenceElementId
+                : null
+            }
             imageUrls={imageUrls}
             onSelectElement={onSelectElement}
+            onSetReferenceElement={onSetReferenceElement}
             onSelectElements={onSelectElements}
             onDeselectElement={onDeselectElement}
             onMoveEnd={onMoveEnd}
@@ -339,6 +391,12 @@ export function EditorShell({
             onSendToBack={on_send_to_back}
             onAlign={on_align_element}
             onDeleteElement={onDeleteElement}
+            onDeleteElements={onDeleteElements}
+            onRotateElements={onRotateElements}
+            onSetElementsOpacity={onSetElementsOpacity}
+            onAlignElementsToCanvas={onAlignElementsToCanvas}
+            onAlignElementsToReference={onAlignElementsToReference}
+            onDistributeElements={onDistributeElements}
             onBackgroundChange={onBackgroundChange}
             onBackgroundCommit={onBackgroundCommit}
             onTransitionChange={onTransitionChange}
