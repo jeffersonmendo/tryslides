@@ -7,8 +7,8 @@ import type {
   PresentationCard,
   PresentationPersistenceErrorCode,
   PresentationRepository,
-} from "@/features/presentations/application/presentation-repository";
-import { PresentationPersistenceError } from "@/features/presentations/application/presentation-repository";
+} from "@/features/presentations/application/persistence/presentation-repository";
+import { PresentationPersistenceError } from "@/features/presentations/application/persistence/presentation-repository";
 import {
   deserializePresentationState,
   isPresentationOperationCompatibleWithState,

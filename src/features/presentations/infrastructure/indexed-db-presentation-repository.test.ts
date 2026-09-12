@@ -3,20 +3,20 @@ import test from "node:test";
 
 import { IDBFactory } from "fake-indexeddb";
 
-import { createEditorCapability } from "@/features/presentations/application/editor-capability";
+import { createEditorCapability } from "@/features/presentations/application/editor/editor-capability";
 import {
   loadLocalAsset,
   saveLocalAsset,
-} from "@/features/presentations/application/local-assets";
-import { PresentationCommands } from "@/features/presentations/application/presentation-commands";
-import { PresentationPersistenceError } from "@/features/presentations/application/presentation-repository";
+} from "@/features/presentations/application/persistence/local-assets";
+import { PresentationPersistenceError } from "@/features/presentations/application/persistence/presentation-repository";
 import {
   createPresentationProjection,
   loadPresentation,
   savePresentation,
   savePresentationWithLocalAsset,
   savePresentationWithLocalAssets,
-} from "@/features/presentations/application/save-presentation";
+} from "@/features/presentations/application/persistence/save-presentation";
+import { PresentationCommands } from "@/features/presentations/application/presentation-commands";
 import {
   createElement,
   createElements,

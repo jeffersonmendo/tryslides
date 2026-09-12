@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
-import { EditorEntry } from "@/features/presentations/components/editor-entry";
+import { EditorEntry } from "@/features/presentations/components/editor/editor-entry";
 import { isValidPresentationId } from "@/features/presentations/core/presentation-core";
 import { routing } from "@/i18n/routing";
 

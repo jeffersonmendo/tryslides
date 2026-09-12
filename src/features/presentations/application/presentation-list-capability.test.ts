@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import { PresentationCommands } from "./presentation-commands";
-import { createPresentationListCapability } from "./presentation-list-capability";
 import type {
   AcknowledgePresentationSaveInput,
   PersistedPresentation,
   PresentationCard,
   PresentationRepository,
-} from "./presentation-repository";
+} from "./persistence/presentation-repository";
+import { PresentationCommands } from "./presentation-commands";
+import { createPresentationListCapability } from "./presentation-list-capability";
 
 const PRESENTATION_ID = "550e8400-e29b-41d4-a716-446655440000";
 const PUBLIC_ID = "Ab3xYz";

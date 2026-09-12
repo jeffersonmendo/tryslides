@@ -75,7 +75,7 @@ Examples:
 ```text
 calculatePrice()
 canDeleteWorkspace()
-normalizePresentation()
+normalizeRecord()
 applyDiscount()
 buildPagination()
 ```
@@ -180,7 +180,7 @@ For example, prefer:
 ```ts
 expect(
   screen.getByRole("button", {
-    name: "Delete presentation",
+    name: "Delete record",
   }),
 ).toBeDisabled()
 ```
@@ -230,8 +230,8 @@ A simple fake implementation can sometimes be clearer than a complex mocking set
 For example:
 
 ```ts
-class MemoryPresentationRepository
-  implements PresentationRepository {
+class MemoryRecordStore
+  implements RecordStore {
   // deterministic in-memory implementation
 }
 ```
@@ -265,11 +265,11 @@ Infrastructure failure
 For example:
 
 ```text
-Delete Presentation
+Delete record
 
 ✓ owner can delete
 ✓ non-owner cannot delete
-✓ missing presentation is handled
+✓ missing record is handled
 ✓ persistence failure does not report success
 ```
 
@@ -351,20 +351,34 @@ Control nondeterminism when it materially affects test reliability.
 
 ## 11. Keep Tests Close to Ownership
 
-Tests should normally live near the capability they verify or in a predictable test location defined by the project.
+Tests should normally live near the capability they verify. Keep them scoped to the owning feature, layer, or functional area. Use a `tests/` directory when separating tests from production files improves scanability.
 
 For example:
 
 ```text
 features/
-└── billing/
-    ├── services/
-    │   ├── calculate-price.ts
-    │   └── calculate-price.test.ts
-    └── ...
+└── <feature>/
+    ├── <layer-or-area>/
+    │   ├── normalize-record.ts
+    │   └── tests/
+    │       └── normalize-record.test.ts
+    └── components/
+        ├── filter-panel/
+        │   └── filter-panel.tsx
+        └── tests/
+            └── filter-panel.test.tsx
 ```
 
-or another consistent structure chosen by the project.
+The test directory name is `tests/`; its nested names should mirror the owned responsibility and make the production area obvious. A feature-specific test must remain within its feature rather than moving to one global test directory. Project-level test locations remain appropriate only for genuinely application-level suites, such as end-to-end workflows.
+
+Keep focused, low-complexity tests colocated when that is clearer:
+
+```text
+features/<feature>/<layer-or-area>/format-label.ts
+features/<feature>/<layer-or-area>/format-label.test.ts
+```
+
+Do not create a `tests/` directory merely to satisfy a layout pattern. Prefer it when multiple tests, setup, fixtures, or separated production and test concerns benefit from a dedicated, scoped location.
 
 Feature-specific tests belong to the feature.
 

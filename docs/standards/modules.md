@@ -16,10 +16,9 @@ Examples:
 
 ```text id="f0bs6i"
 features/
-├── auth/
-├── billing/
-├── presentations/
-└── sharing/
+├── accounts/
+├── catalog/
+└── <feature>/
 ```
 
 Each feature owns its implementation.
@@ -28,13 +27,9 @@ For example:
 
 ```text id="s7foc1"
 features/
-└── presentations/
+└── <feature>/
     ├── components/
-    ├── actions/
-    ├── services/
-    ├── repositories/
-    ├── schemas/
-    └── types/
+    └── <established-area>/
 ```
 
 Not every module needs every directory.
@@ -43,7 +38,23 @@ Only create internal structure when the responsibility actually exists.
 
 ---
 
-## 2. Keep Internal Code Internal
+## 2. Organize Layers Without Weakening Boundaries
+
+Internal subfolders may organize an existing feature layer or area by a stable responsibility. They do not create a new public API or change architectural dependency direction.
+
+```text
+<feature>/
+├── components/
+│   └── filter-panel/
+└── <established-layer>/
+    └── <responsibility>/
+```
+
+Create a subfolder only when its owner and responsibility can be named. Good: `components/filter-panel/` contains filter-panel UI behavior. Bad: `components/helpers/` collects unrelated code. Code in these subfolders remains internal unless the module intentionally exposes it, and dependency direction must remain intact regardless of the path.
+
+---
+
+## 3. Keep Internal Code Internal
 
 A module may contain internal implementation details that should not be consumed directly by unrelated modules.
 
@@ -75,7 +86,7 @@ Dependencies should target intentional APIs, not internal file paths.
 
 ---
 
-## 3. Public APIs Should Be Intentional
+## 4. Public APIs Should Be Intentional
 
 A module should expose only what other parts of the application genuinely need.
 
@@ -88,9 +99,8 @@ Billing
 │   └── getBillingStatus
 │
 └── internal implementation
-    ├── stripe adapter
-    ├── helpers
-    ├── schemas
+    ├── adapter
+    ├── validation
     └── persistence details
 ```
 
@@ -108,20 +118,16 @@ A public API should represent a meaningful capability or reusable contract.
 
 ---
 
-## 4. Avoid Cross-Feature Internal Imports
+## 5. Avoid Cross-Feature Internal Imports
 
 Features should not depend directly on the internal implementation of other features.
 
 Avoid:
 
 ```text id="z802ce"
-auth
+Feature A
 ↓
-billing/internal/helper
-
-presentations
-↓
-users/internal/repository
+Feature B/internal/helper
 ```
 
 If one feature requires something from another, prefer one of these:
@@ -144,7 +150,7 @@ If many features continuously reach into each other's internals, the module boun
 
 ---
 
-## 5. Shared Modules Must Have Real Shared Ownership
+## 6. Shared Modules Must Have Real Shared Ownership
 
 Do not move code into a global shared module merely because two files currently use it.
 
@@ -175,7 +181,7 @@ Prefer duplication of a tiny simple implementation over creating the wrong share
 
 ---
 
-## 6. Avoid Generic Module Dumping Grounds
+## 7. Avoid Generic Module Dumping Grounds
 
 Directories such as:
 
@@ -195,9 +201,7 @@ For example:
 
 ```text id="sa1a2k"
 lib/
-├── stripe/
-├── database/
-└── email/
+└── <named-integration>/
 ```
 
 can be reasonable if `lib/` is explicitly defined as infrastructure integrations.
@@ -207,11 +211,8 @@ This is less clear:
 ```text id="yyjq9q"
 lib/
 ├── date.ts
-├── billing.ts
-├── user.ts
-├── editor.ts
-├── random-helper.ts
-└── calculations.ts
+├── feature-rule.ts
+└── random-helper.ts
 ```
 
 when unrelated application behavior accumulates there.
@@ -220,7 +221,7 @@ A generic folder becoming difficult to describe is a signal that code should be 
 
 ---
 
-## 7. Prefer Direct Imports
+## 8. Prefer Direct Imports
 
 Prefer importing the exact capability needed.
 
@@ -253,7 +254,7 @@ See [`imports.md`](./imports.md) for detailed import conventions.
 
 ---
 
-## 8. Module Dependencies Should Be Directional
+## 9. Module Dependencies Should Be Directional
 
 Dependencies between modules should have a clear reason.
 
@@ -278,23 +279,23 @@ Do not resolve circular dependencies merely by adding another helper file that h
 
 ---
 
-## 9. Modules May Define Contracts
+## 10. Modules May Define Contracts
 
 A module may define contracts for capabilities it requires from infrastructure or other layers.
 
 Example:
 
 ```ts id="h9fvg6"
-export interface PresentationRepository {
-  findById(id: string): Promise<Presentation | null>
-  save(presentation: Presentation): Promise<void>
+export interface RecordStore {
+  findById(id: string): Promise<Record | null>
+  save(record: Record): Promise<void>
 }
 ```
 
 The implementation may live elsewhere:
 
 ```text id="goawx1"
-Presentation module
+Feature module
 ↓ defines contract
 
 Infrastructure
@@ -309,7 +310,7 @@ Contracts are useful when they represent a meaningful boundary.
 
 ---
 
-## 10. Module Size Should Follow Cohesion
+## 11. Module Size Should Follow Cohesion
 
 Do not split a module simply because it contains many files.
 

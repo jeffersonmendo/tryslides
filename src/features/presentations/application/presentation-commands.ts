@@ -20,13 +20,13 @@ import type {
   PresentationPersistenceErrorCode,
   PresentationRepository,
   PresentationSyncMetadata,
-} from "./presentation-repository";
-import { PresentationPersistenceError } from "./presentation-repository";
+} from "./persistence/presentation-repository";
+import { PresentationPersistenceError } from "./persistence/presentation-repository";
 import {
   savePresentation,
   savePresentationWithLocalAsset,
   savePresentationWithLocalAssets,
-} from "./save-presentation";
+} from "./persistence/save-presentation";
 
 export interface PresentationIdGenerator {
   createPresentationId(): string;

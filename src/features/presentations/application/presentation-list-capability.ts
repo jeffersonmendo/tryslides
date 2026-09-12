@@ -1,11 +1,11 @@
 import type {
+  PresentationCard,
+  PresentationRepository,
+} from "./persistence/presentation-repository";
+import type {
   PresentationCommandResult,
   PresentationCommands,
 } from "./presentation-commands";
-import type {
-  PresentationCard,
-  PresentationRepository,
-} from "./presentation-repository";
 
 export type PresentationListCapability = {
   listPresentations(): Promise<readonly PresentationCard[]>;

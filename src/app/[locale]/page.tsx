@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
-import { PresentationListEntry } from "@/features/presentations/components/presentation-list-entry";
+import { PresentationListEntry } from "@/features/presentations/components/presentation-list/presentation-list-entry";
 import { routing } from "@/i18n/routing";
 
 type Props = Readonly<{

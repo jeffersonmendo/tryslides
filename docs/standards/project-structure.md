@@ -76,39 +76,50 @@ Example:
 
 ```text
 features/
-├── auth/
-├── billing/
-├── presentations/
-└── sharing/
+├── accounts/
+├── catalog/
+└── <feature>/
 ```
 
 A feature may contain:
 
 ```text
-presentations/
+<feature>/
 ├── components/
-├── actions/
-├── hooks/
-├── schemas/
-├── services/
-├── repositories/
-└── types/
+└── <established-layer>/
 ```
 
 These directories are **not mandatory**.
 
-For example, if a feature has no meaningful service layer:
+The feature's `components/` directory remains its UI root. Do not replace it with a competing feature-level UI root such as `editor/` or `views/`.
+
+### Organize Feature Layers by Responsibility
+
+An established layer within a feature may gain responsibility-based subdirectories when they make the layer easier to scan. Do not let a layer become a flat dump of unrelated files, and do not create speculative or empty directories.
 
 ```text
-presentations/
+<feature>/
 ├── components/
-├── actions/
-└── schemas/
+│   └── filter-panel/
+└── <established-layer>/
+    └── <responsibility>/
+```
+
+Names should describe the responsibility inside the owning layer, not an accidental implementation detail. For example, `components/filter-panel/` clearly owns filter-panel UI; `components/helpers/` is unclear unless its contents and ownership are explicitly defined.
+
+For example, a feature should contain only the layers it needs:
+
+```text
+<feature>/
+├── components/
+└── <established-layer>/
 ```
 
 is preferable to creating empty architectural layers.
 
 Feature-specific code should remain inside the feature until it becomes genuinely shared.
+
+Local `lib/` directories are allowed only when their owning layer or functional area and purpose are explicit. For example, `components/filter-panel/lib/format-filter-label.ts` may contain filter-panel-only UI helpers; `features/<feature>/lib/helpers.ts` is a generic dumping ground and should be reorganized under its actual owner.
 
 ---
 
