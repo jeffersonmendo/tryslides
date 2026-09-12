@@ -282,8 +282,7 @@ export function createEditorCapability(
             id: commands.createElementId(),
             type: "shape",
             shapeType: shape_input.shapeType,
-            position: { x: 660, y: 360 },
-            size: { width: 600, height: 360 },
+            ...createShapeElementLayout(shape_input.shapeType),
             rotation: 0,
             opacity: 1,
           },
@@ -476,6 +475,50 @@ const MAX_IMAGE_IMPORT_COUNT = 10;
 const TEXT_MIN_WIDTH = 160;
 const TEXT_MAX_WIDTH = 720;
 const TEXT_HEIGHT = 96;
+const SQUARE_SHAPE_SIZE = 240;
+const WIDE_SHAPE_SIZE = { width: 600, height: 360 };
+const LINE_SHAPE_SIZE = { width: 600, height: 120 };
+
+function createShapeElementLayout(shape_type: ShapeElement["shapeType"]): {
+  readonly position: ElementPosition;
+  readonly size: ElementSize;
+} {
+  const size = getDefaultShapeSize(shape_type);
+  return {
+    position: {
+      x: (PRESENTATION_CANVAS.width - size.width) / 2,
+      y: (PRESENTATION_CANVAS.height - size.height) / 2,
+    },
+    size,
+  };
+}
+
+function getDefaultShapeSize(
+  shape_type: ShapeElement["shapeType"],
+): ElementSize {
+  switch (shape_type) {
+    case "rectangle":
+    case "speech-bubble":
+    case "round-bubble":
+      return WIDE_SHAPE_SIZE;
+    case "line":
+    case "arrow":
+    case "double-arrow":
+      return LINE_SHAPE_SIZE;
+    case "circle":
+    case "triangle":
+    case "diamond":
+    case "star":
+    case "heart":
+    case "plus":
+    case "minus":
+    case "multiply":
+    case "divide":
+    case "equal":
+    case "not-equal":
+      return { width: SQUARE_SHAPE_SIZE, height: SQUARE_SHAPE_SIZE };
+  }
+}
 
 function createTextElementLayout(content: string): {
   readonly position: ElementPosition;

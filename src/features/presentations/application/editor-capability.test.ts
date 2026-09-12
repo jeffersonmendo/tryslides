@@ -10,15 +10,16 @@ import type {
   PresentationRepository,
 } from "./presentation-repository";
 
-test("creates a line shape through the editor application capability", async () => {
+test("creates shapes with type-specific centered default dimensions", async () => {
   const repository = new MemoryPresentationRepository();
+  let element_number = 0;
   const commands = new PresentationCommands(
     repository,
     {
       createPresentationId: () => "550e8400-e29b-41d4-a716-446655440000",
       createPublicId: () => "Ab3xYz",
       createSlideId: () => "slide_1",
-      createElementId: () => "element_1",
+      createElementId: () => `element_${++element_number}`,
       createLocalOperationId: () => "operation_1",
     },
     createClock(),
@@ -29,16 +30,57 @@ test("creates a line shape through the editor application capability", async () 
   assert.equal(presentation.success, true);
   if (!presentation.success) return;
 
-  const result = await capability.createShapeElement(presentation.state, {
-    slideId: "slide_1",
-    shapeType: "line",
-  });
+  const expected_layouts = [
+    {
+      shapeType: "circle" as const,
+      size: { width: 240, height: 240 },
+      position: { x: 840, y: 420 },
+    },
+    {
+      shapeType: "diamond" as const,
+      size: { width: 240, height: 240 },
+      position: { x: 840, y: 420 },
+    },
+    {
+      shapeType: "plus" as const,
+      size: { width: 240, height: 240 },
+      position: { x: 840, y: 420 },
+    },
+    {
+      shapeType: "rectangle" as const,
+      size: { width: 600, height: 360 },
+      position: { x: 660, y: 360 },
+    },
+    {
+      shapeType: "speech-bubble" as const,
+      size: { width: 600, height: 360 },
+      position: { x: 660, y: 360 },
+    },
+    {
+      shapeType: "arrow" as const,
+      size: { width: 600, height: 120 },
+      position: { x: 660, y: 480 },
+    },
+  ];
+  let state = presentation.state;
 
-  assert.equal(result.success, true);
-  if (!result.success) return;
-  const element = result.state.slides[0]?.elements[0];
-  assert.equal(element?.type, "shape");
-  if (element?.type === "shape") assert.equal(element.shapeType, "line");
+  for (const expected of expected_layouts) {
+    const result = capability.createShapeElement(state, {
+      slideId: "slide_1",
+      shapeType: expected.shapeType,
+    });
+
+    assert.equal(result.success, true);
+    if (!result.success) return;
+    const element = result.state.slides[0]?.elements.at(-1);
+    assert.equal(element?.type, "shape");
+    if (element?.type === "shape") {
+      assert.equal(element.shapeType, expected.shapeType);
+      assert.deepEqual(element.size, expected.size);
+      assert.deepEqual(element.position, expected.position);
+    }
+    state = result.state;
+  }
 });
 
 test("reports a failed element move when persistence rejects the final commit", async () => {

@@ -13,10 +13,30 @@ test("exposes header creation actions outside the dimmed editor workspace", () =
   );
 
   assert.match(header_source, /onClick=\{onCreateText\}/);
-  assert.match(
-    header_source,
-    /onClick=\{\(\) => onCreateShape\("rectangle"\)\}/,
-  );
+  for (const shape_type of [
+    "rectangle",
+    "circle",
+    "triangle",
+    "diamond",
+    "star",
+    "heart",
+    "line",
+    "arrow",
+    "double-arrow",
+    "speech-bubble",
+    "round-bubble",
+    "plus",
+    "minus",
+    "multiply",
+    "divide",
+    "equal",
+    "not-equal",
+  ]) {
+    assert.match(
+      header_source,
+      new RegExp(`onClick=\\{\\(\\) => onCreateShape\\("${shape_type}"\\)\\}`),
+    );
+  }
   assert.match(header_source, /accept="image\/\*"/);
   assert.match(header_source, /onChange=\{handleImageChange\}/);
   assert.match(header_source, /multiple/);

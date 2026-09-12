@@ -408,7 +408,27 @@ function ShapeFields({
             <SelectGroup>
               <SelectItem value="rectangle">{labels.shapeRectangle}</SelectItem>
               <SelectItem value="circle">{labels.shapeCircle}</SelectItem>
+              <SelectItem value="triangle">{labels.shapeTriangle}</SelectItem>
+              <SelectItem value="diamond">{labels.shapeDiamond}</SelectItem>
+              <SelectItem value="star">{labels.shapeStar}</SelectItem>
+              <SelectItem value="heart">{labels.shapeHeart}</SelectItem>
               <SelectItem value="line">{labels.shapeLine}</SelectItem>
+              <SelectItem value="arrow">{labels.shapeArrow}</SelectItem>
+              <SelectItem value="double-arrow">
+                {labels.shapeDoubleArrow}
+              </SelectItem>
+              <SelectItem value="speech-bubble">
+                {labels.shapeSpeechBubble}
+              </SelectItem>
+              <SelectItem value="round-bubble">
+                {labels.shapeRoundBubble}
+              </SelectItem>
+              <SelectItem value="plus">{labels.shapePlus}</SelectItem>
+              <SelectItem value="minus">{labels.shapeMinus}</SelectItem>
+              <SelectItem value="multiply">{labels.shapeMultiply}</SelectItem>
+              <SelectItem value="divide">{labels.shapeDivide}</SelectItem>
+              <SelectItem value="equal">{labels.shapeEqual}</SelectItem>
+              <SelectItem value="not-equal">{labels.shapeNotEqual}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -421,7 +441,7 @@ function ShapeFields({
         onChange={(fill) => onPatch({ style: { fill } })}
         onCommit={(fill) => onPatchCommit({ style: { fill } })}
       />
-      {element.shapeType === "line" ? null : (
+      {isLineShape(element.shapeType) ? null : (
         <ColorField
           id={`border-${element.id}`}
           label={labels.border}
@@ -539,7 +559,41 @@ function ColorField({
 function isShapeType(
   value: string,
 ): value is Extract<EditorElement, { readonly type: "shape" }>["shapeType"] {
-  return value === "rectangle" || value === "circle" || value === "line";
+  return [
+    "rectangle",
+    "circle",
+    "triangle",
+    "diamond",
+    "star",
+    "heart",
+    "line",
+    "arrow",
+    "double-arrow",
+    "speech-bubble",
+    "round-bubble",
+    "plus",
+    "minus",
+    "multiply",
+    "divide",
+    "equal",
+    "not-equal",
+  ].includes(value);
+}
+
+function isLineShape(
+  shape_type: Extract<EditorElement, { readonly type: "shape" }>["shapeType"],
+): boolean {
+  return [
+    "line",
+    "arrow",
+    "double-arrow",
+    "plus",
+    "minus",
+    "multiply",
+    "divide",
+    "equal",
+    "not-equal",
+  ].includes(shape_type);
 }
 
 function getShapeTypeLabel(
@@ -549,7 +603,21 @@ function getShapeTypeLabel(
   return {
     rectangle: labels.shapeRectangle,
     circle: labels.shapeCircle,
+    triangle: labels.shapeTriangle,
+    diamond: labels.shapeDiamond,
+    star: labels.shapeStar,
+    heart: labels.shapeHeart,
     line: labels.shapeLine,
+    arrow: labels.shapeArrow,
+    "double-arrow": labels.shapeDoubleArrow,
+    "speech-bubble": labels.shapeSpeechBubble,
+    "round-bubble": labels.shapeRoundBubble,
+    plus: labels.shapePlus,
+    minus: labels.shapeMinus,
+    multiply: labels.shapeMultiply,
+    divide: labels.shapeDivide,
+    equal: labels.shapeEqual,
+    "not-equal": labels.shapeNotEqual,
   }[shape_type];
 }
 

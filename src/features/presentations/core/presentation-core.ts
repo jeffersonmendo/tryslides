@@ -105,6 +105,7 @@ export type {
   ShapeElement,
   ShapeStyle,
   ShapeStylePatch,
+  ShapeType,
   Slide,
   SlideBackground,
   SlidePatch,

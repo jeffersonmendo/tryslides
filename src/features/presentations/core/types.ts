@@ -153,9 +153,27 @@ export type ImageElement = ElementBase & {
   readonly assetId: string;
   readonly style: ImageStyle;
 };
+export type ShapeType =
+  | "rectangle"
+  | "circle"
+  | "triangle"
+  | "diamond"
+  | "star"
+  | "heart"
+  | "line"
+  | "arrow"
+  | "double-arrow"
+  | "speech-bubble"
+  | "round-bubble"
+  | "plus"
+  | "minus"
+  | "multiply"
+  | "divide"
+  | "equal"
+  | "not-equal";
 export type ShapeElement = ElementBase & {
   readonly type: "shape";
-  readonly shapeType: "rectangle" | "circle" | "line";
+  readonly shapeType: ShapeType;
   readonly style: ShapeStyle;
 };
 export type PresentationElement = TextElement | ImageElement | ShapeElement;

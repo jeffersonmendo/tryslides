@@ -15,7 +15,25 @@ import type {
   TransitionConfigurationInput,
 } from "./types";
 
-const SHAPE_TYPES = new Set(["rectangle", "circle", "line"]);
+const SHAPE_TYPES = new Set([
+  "rectangle",
+  "circle",
+  "triangle",
+  "diamond",
+  "star",
+  "heart",
+  "line",
+  "arrow",
+  "double-arrow",
+  "speech-bubble",
+  "round-bubble",
+  "plus",
+  "minus",
+  "multiply",
+  "divide",
+  "equal",
+  "not-equal",
+]);
 const BASE_PATCH_KEYS = new Set([
   "position",
   "size",

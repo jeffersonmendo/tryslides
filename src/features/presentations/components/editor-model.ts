@@ -1,4 +1,7 @@
-import type { SlideBackground } from "@/features/presentations/core/presentation-core";
+import type {
+  ShapeType,
+  SlideBackground,
+} from "@/features/presentations/core/presentation-core";
 
 export type EditorSlide = {
   readonly id: string;
@@ -46,7 +49,7 @@ export type EditorImageElement = {
 export type EditorShapeElement = {
   readonly id: string;
   readonly type: "shape";
-  readonly shapeType: "rectangle" | "circle" | "line";
+  readonly shapeType: ShapeType;
   readonly position: { readonly x: number; readonly y: number };
   readonly size: { readonly width: number; readonly height: number };
   readonly opacity: number;

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import type {
   ElementPatch,
+  ShapeType,
   SlideBackground,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
@@ -44,6 +45,20 @@ type EditorShellProps = {
     readonly shapeRectangle: string;
     readonly shapeCircle: string;
     readonly shapeLine: string;
+    readonly shapeTriangle: string;
+    readonly shapeDiamond: string;
+    readonly shapeStar: string;
+    readonly shapeHeart: string;
+    readonly shapeArrow: string;
+    readonly shapeDoubleArrow: string;
+    readonly shapeSpeechBubble: string;
+    readonly shapeRoundBubble: string;
+    readonly shapePlus: string;
+    readonly shapeMinus: string;
+    readonly shapeMultiply: string;
+    readonly shapeDivide: string;
+    readonly shapeEqual: string;
+    readonly shapeNotEqual: string;
     readonly alignment: string;
     readonly layoutAlign: string;
     readonly alignmentCenter: string;
@@ -125,7 +140,7 @@ type EditorShellProps = {
     after_slide_id: string | null,
   ) => void;
   readonly onCreateText: () => void;
-  readonly onCreateShape: (shape_type: "rectangle" | "circle" | "line") => void;
+  readonly onCreateShape: (shape_type: ShapeType) => void;
   readonly onUploadImages: (files: readonly File[]) => void;
   readonly onRedo: () => void;
   readonly onRedoPresentation: () => void;

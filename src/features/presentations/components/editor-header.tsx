@@ -23,6 +23,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import * as Lucide from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type ChangeEvent, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import type { ShapeType } from "@/features/presentations/core/presentation-core";
 
 type EditorHeaderProps = {
   readonly title: string;
@@ -48,7 +50,7 @@ type EditorHeaderProps = {
   readonly redoLabel: string;
   readonly undoLabel: string;
   readonly onRedo: () => void;
-  readonly onCreateShape: (shape_type: "rectangle" | "circle" | "line") => void;
+  readonly onCreateShape: (shape_type: ShapeType) => void;
   readonly onCreateText: () => void;
   readonly onUploadImages: (files: readonly File[]) => void;
   readonly onUndo: () => void;
@@ -70,6 +72,7 @@ export function EditorHeader({
   onUndo,
 }: EditorHeaderProps) {
   const image_input_ref = useRef<HTMLInputElement>(null);
+  const t = useTranslations("Editor");
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const image_files = Array.from(event.target.files ?? []);
     if (image_files.length > 0) onUploadImages(image_files);
@@ -84,6 +87,7 @@ export function EditorHeader({
           <Lucide.PenTool data-icon="inline-start" />
         </Button>
         <Button
+          aria-label={addTextLabel}
           size="icon"
           type="button"
           variant="ghost"
@@ -91,18 +95,15 @@ export function EditorHeader({
         >
           <IconTextSize data-icon="inline-start" />
         </Button>
-        <Button
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={() => onCreateShape("rectangle")}
-        >
-          <IconIcons data-icon="inline-start" />
-        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button size="icon" type="button" variant="ghost">
+              <Button
+                aria-label={addShapeLabel}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
                 <IconIcons data-icon="inline-start" />
               </Button>
             }
@@ -110,122 +111,136 @@ export function EditorHeader({
 
           <DropdownMenuContent>
             <DropdownMenuGroup>
-              {/* Shapes */}
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Shapes</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger>
+                  {t("shapeCategoryShapes")}
+                </DropdownMenuSubTrigger>
 
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onCreateShape("rectangle")}
+                    >
                       <IconRectangle />
-                      Rectangle
+                      {t("shapeRectangle")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("circle")}>
                       <IconCircle />
-                      Circle
+                      {t("shapeCircle")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("triangle")}>
                       <IconTriangle />
-                      Triangle
+                      {t("shapeTriangle")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("diamond")}>
                       <IconDiamonds />
-                      Diamond
+                      {t("shapeDiamond")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("star")}>
                       <IconStar />
-                      Star
+                      {t("shapeStar")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("heart")}>
                       <IconHeart />
-                      Heart
+                      {t("shapeHeart")}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
 
-              {/* Lines */}
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Lines</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger>
+                  {t("shapeCategoryLines")}
+                </DropdownMenuSubTrigger>
 
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("line")}>
                       <IconStrokeStraight />
-                      Line
+                      {t("shapeLine")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("arrow")}>
                       <IconArrowRight />
-                      Arrow
+                      {t("shapeArrow")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onCreateShape("double-arrow")}
+                    >
                       <IconArrowsHorizontal />
-                      Double Arrow
+                      {t("shapeDoubleArrow")}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
 
-              {/* Callouts */}
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Callouts</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger>
+                  {t("shapeCategoryCallouts")}
+                </DropdownMenuSubTrigger>
 
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onCreateShape("speech-bubble")}
+                    >
                       <IconBubble />
-                      Speech Bubble
+                      {t("shapeSpeechBubble")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onCreateShape("round-bubble")}
+                    >
                       <IconMessageCircle />
-                      Round Bubble
+                      {t("shapeRoundBubble")}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
 
-              {/* Math */}
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Math</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger>
+                  {t("shapeCategoryMath")}
+                </DropdownMenuSubTrigger>
 
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("plus")}>
                       <IconPlus />
-                      Plus
+                      {t("shapePlus")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("minus")}>
                       <IconMinus />
-                      Minus
+                      {t("shapeMinus")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("multiply")}>
                       <IconX />
-                      Multiply
+                      {t("shapeMultiply")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("divide")}>
                       <IconDivide />
-                      Divide
+                      {t("shapeDivide")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateShape("equal")}>
                       <IconEqual />
-                      Equal
+                      {t("shapeEqual")}
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onCreateShape("not-equal")}
+                    >
                       <IconEqualNot />
-                      Not Equal
+                      {t("shapeNotEqual")}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
@@ -242,6 +257,7 @@ export function EditorHeader({
           onChange={handleImageChange}
         />
         <Button
+          aria-label={addImageLabel}
           size="icon"
           type="button"
           variant="ghost"

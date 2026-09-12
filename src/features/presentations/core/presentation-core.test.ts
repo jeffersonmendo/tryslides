@@ -2543,13 +2543,13 @@ test("configures documented text, image, and shape visual styles", () => {
   assert.deepEqual(restored.state, shape.state);
 });
 
-test("preserves line shape identity through Core creation and serialization", () => {
+test("preserves additional shape identities through Core creation and serialization", () => {
   const created = create_element(createStateWithSlide(), {
     slideId: "slide_1",
     element: {
-      id: "line_1",
+      id: "triangle_1",
       type: "shape",
-      shapeType: "line",
+      shapeType: "triangle",
       position: { x: 100, y: 100 },
       size: { width: 600, height: 2 },
       rotation: 0,
@@ -2561,7 +2561,7 @@ test("preserves line shape identity through Core creation and serialization", ()
   if (!created.success) return;
   assert.equal(created.state.slides[0]?.elements[0]?.type, "shape");
   if (created.state.slides[0]?.elements[0]?.type === "shape") {
-    assert.equal(created.state.slides[0].elements[0].shapeType, "line");
+    assert.equal(created.state.slides[0].elements[0].shapeType, "triangle");
   }
 
   const serialized = serializePresentationState(created.state);

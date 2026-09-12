@@ -1455,7 +1455,21 @@ function isValidElement(
     ]) &&
     (value.shapeType === "rectangle" ||
       value.shapeType === "circle" ||
-      value.shapeType === "line") &&
+      value.shapeType === "triangle" ||
+      value.shapeType === "diamond" ||
+      value.shapeType === "star" ||
+      value.shapeType === "heart" ||
+      value.shapeType === "line" ||
+      value.shapeType === "arrow" ||
+      value.shapeType === "double-arrow" ||
+      value.shapeType === "speech-bubble" ||
+      value.shapeType === "round-bubble" ||
+      value.shapeType === "plus" ||
+      value.shapeType === "minus" ||
+      value.shapeType === "multiply" ||
+      value.shapeType === "divide" ||
+      value.shapeType === "equal" ||
+      value.shapeType === "not-equal") &&
     isValidShapeStyle(value.style)
   );
 }
