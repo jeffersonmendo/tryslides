@@ -7,10 +7,16 @@ import {
   render as renderComponent,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import {
+  getPresentationFontStack,
+  TEXT_FONT_FAMILIES,
+} from "@/features/presentations/core/presentation-core";
 import { ElementInspector } from "../element-inspector";
+import { FontFamilyCombobox } from "../font-family-combobox";
 import { GroupInspector } from "../group-inspector";
 import type { EditorElement, EditorTextElement } from "../lib/editor-model";
 import { TextInspector } from "../text-inspector";
+import { TextRenderer } from "../text-renderer";
 
 const EDITOR_NAMESPACE = "Editor";
 const messages = {
@@ -19,11 +25,32 @@ const messages = {
     alignmentCenter: "Center",
     alignmentLeft: "Left",
     alignmentRight: "Right",
+    alignmentJustify: "Justify",
     layoutAlign: "Layout",
     color: "Color",
     content: "Content",
     fontSize: "Font size",
+    fontFamily: "Font family",
+    fontGeist: "Geist",
+    fontGeistMono: "Geist Mono",
+    fontGeistPixel: "Geist Pixel",
+    fontInter: "Inter",
+    fontMontserrat: "Montserrat",
+    fontPlayfairDisplay: "Playfair Display",
+    fontLora: "Lora",
     fontWeight: "Font weight",
+    lineHeight: "Line height",
+    letterSpacing: "Letter spacing",
+    searchFontFamily: "Search font families",
+    noFontFamiliesFound: "No font families found.",
+    mixedValue: "Mixed",
+    fontWeightThin: "Thin",
+    fontWeightExtraLight: "Extra Light",
+    fontWeightLight: "Light",
+    fontWeightMedium: "Medium",
+    fontWeightSemiBold: "Semi Bold",
+    fontWeightExtraBold: "Extra Bold",
+    fontWeightBlack: "Black",
     fontWeightBold: "Bold",
     fontWeightRegular: "Regular",
     role: "Role",
@@ -71,8 +98,10 @@ const messages = {
     shapeEqual: "Equal",
     shapeNotEqual: "Not equal",
     fill: "Fill",
+    stroke: "Stroke",
     border: "Border",
     borderWidth: "Border width",
+    strokeWidth: "Stroke width",
     radius: "Radius",
     fit: "Fit",
     fitContain: "Contain",
@@ -117,8 +146,11 @@ const text: EditorTextElement = {
   rotation: 0,
   style: {
     role: "Paragraph",
+    fontFamily: "Geist",
     fontSize: 16,
     fontWeight: 400,
+    lineHeight: 1.2,
+    letterSpacing: 0,
     color: "#000000",
     alignment: "left",
   },
@@ -230,6 +262,67 @@ test("keeps inspector copy local instead of accepting propagated labels", () => 
   }
 });
 
+test("labels the controlled font-family combobox and emits only a domain value", () => {
+  const selected: string[] = [];
+  const result = render(
+    <FontFamilyCombobox
+      value="Geist"
+      onValueChange={(value) => selected.push(value)}
+    />,
+  );
+  const input = result.getByLabelText("Font family");
+
+  assert.equal(input.getAttribute("placeholder"), "Search font families");
+  const trigger = result.container.querySelector(
+    "[data-slot=input-group-button]",
+  );
+  assert.ok(trigger);
+  fireEvent.click(trigger);
+  assert.deepEqual(TEXT_FONT_FAMILIES, [
+    "Geist",
+    "Geist Mono",
+    "Geist Pixel",
+    "Inter",
+    "Montserrat",
+    "Playfair Display",
+    "Lora",
+  ]);
+  for (const font_family of TEXT_FONT_FAMILIES) {
+    assert.equal(
+      result.getByText(font_family).style.fontFamily,
+      font_family.includes(" ")
+        ? getPresentationFontStack(font_family)
+        : getPresentationFontStack(font_family).replaceAll('"', ""),
+    );
+  }
+  const playfair_display = result.getByText("Playfair Display");
+  assert.equal(playfair_display.style.fontFamily, '"Playfair Display", serif');
+  fireEvent.click(playfair_display);
+
+  assert.deepEqual(selected, ["Playfair Display"]);
+});
+
+test("uses the mixed-value placeholder until a text-only group chooses a family", () => {
+  const selected: string[] = [];
+  const result = render(
+    <FontFamilyCombobox
+      value={null}
+      onValueChange={(value) => selected.push(value)}
+    />,
+  );
+  const input = result.getByLabelText("Font family");
+
+  assert.equal(input.getAttribute("placeholder"), "Mixed");
+  const trigger = result.container.querySelector(
+    "[data-slot=input-group-button]",
+  );
+  assert.ok(trigger);
+  fireEvent.click(trigger);
+  fireEvent.click(result.getByText("Montserrat"));
+
+  assert.deepEqual(selected, ["Montserrat"]);
+});
+
 test("places text content, transform, and appearance in semantic order", () => {
   const { container } = render(<TextInspector {...text_props} text={text} />);
   assert.deepEqual(sectionNames(container), [
@@ -243,7 +336,7 @@ test("places text content, transform, and appearance in semantic order", () => {
   );
   assert.match(
     sectionContaining(container, "Appearance").textContent ?? "",
-    /Opacity[\s\S]*Font size/,
+    /Alignment[\s\S]*Opacity[\s\S]*Font family[\s\S]*Font size[\s\S]*Line height[\s\S]*Letter spacing/,
   );
   const transform = sectionContaining(container, "Transform");
   assert.match(
@@ -257,6 +350,59 @@ test("places text content, transform, and appearance in semantic order", () => {
     "Transform",
     "Appearance",
   ]);
+});
+
+test("supports justified text alignment and keeps typography labels explicit", () => {
+  const single_styles: unknown[] = [];
+  const single = render(
+    <TextInspector
+      {...text_props}
+      text={text}
+      onStyleApply={(style) => single_styles.push(style)}
+    />,
+  );
+  fireEvent.click(single.getByRole("button", { name: "Justify" }));
+  assert.deepEqual(single_styles, [{ alignment: "justify" }]);
+
+  const line_height = single.getByLabelText("Line height");
+  const letter_spacing = single.getByLabelText("Letter spacing");
+  for (const input of [line_height, letter_spacing]) {
+    const group = input.closest('[data-slot="input-group"]');
+    assert.ok(group?.querySelector('[data-slot="input-group-addon"] svg'));
+  }
+  assert.doesNotMatch(
+    single.container.textContent ?? "",
+    /×|unitless multiplier/i,
+  );
+  cleanup();
+
+  const group_patches: unknown[] = [];
+  const text_group = render(
+    <GroupInspector
+      {...group_props}
+      elements={[text, { ...text, id: "text-2" }]}
+      onPatchCommit={(patch) => group_patches.push(patch)}
+    />,
+  );
+  fireEvent.click(text_group.getByRole("button", { name: "Justify" }));
+  assert.deepEqual(group_patches, [{ style: { alignment: "justify" } }]);
+  assert.ok(text_group.getByLabelText("Line height"));
+  assert.ok(text_group.getByLabelText("Letter spacing"));
+  cleanup();
+
+  const rendered = render(
+    <TextRenderer
+      canvas={{ width: 1920, height: 1080 }}
+      isSelected={false}
+      text={{ ...text, style: { ...text.style, alignment: "justify" } }}
+      onSelect={noop}
+    />,
+  );
+  assert.equal(rendered.getByRole("button").style.textAlign, "justify");
+  assert.equal(
+    rendered.getByRole("button").style.fontFamily,
+    "Geist, sans-serif",
+  );
 });
 
 test("keeps image and shape type content separate from appearance and preserves shape restrictions", () => {
@@ -353,7 +499,7 @@ test("keeps group transform controls together while capability intersections con
   );
   assert.match(
     sectionContaining(text_group.container, "Appearance").textContent ?? "",
-    /Opacity[\s\S]*Font size/,
+    /Alignment[\s\S]*Opacity[\s\S]*Font family[\s\S]*Font size[\s\S]*Line height[\s\S]*Letter spacing/,
   );
   cleanup();
 

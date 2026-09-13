@@ -1,3 +1,4 @@
+import { getPresentationFontStack } from "@/features/presentations/core/presentation-core";
 import type { EditorTextElement } from "./lib/editor-model";
 
 type TextRendererProps = {
@@ -20,13 +21,15 @@ export function TextRenderer({
       data-selected={isSelected}
       style={{
         color: text.style.color,
-        fontFamily: "Arial, sans-serif",
+        fontFamily: getPresentationFontStack(text.style.fontFamily),
         fontSize: `${(text.style.fontSize / canvas.width) * 100}cqw`,
         fontWeight: text.style.fontWeight,
+        letterSpacing: `${(text.style.letterSpacing / canvas.width) * 100}cqw`,
+        lineHeight: text.style.lineHeight,
         height: `${(text.size.height / canvas.height) * 100}%`,
         left: `${(text.position.x / canvas.width) * 100}%`,
         opacity: text.opacity,
-        textAlign: text.style.alignment as "left" | "center" | "right",
+        textAlign: text.style.alignment,
         top: `${(text.position.y / canvas.height) * 100}%`,
         width: `${(text.size.width / canvas.width) * 100}%`,
       }}

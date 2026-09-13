@@ -15,6 +15,9 @@ import type {
 } from "./types";
 import {
   isElementWithinCanvas,
+  isTextAlignment,
+  isTextFontFamily,
+  isTextFontWeight,
   isValidIdentifier,
   isValidPosition,
   isValidPresentationCanvas,
@@ -87,7 +90,7 @@ export function deserializePresentationState<Receipt>(
   options?: DeserializePresentationStateOptions<Receipt>,
 ): DeserializePresentationStateResult {
   try {
-    const parsed_state: unknown = JSON.parse(serialized_state);
+    const parsed_state = migrateLegacyTextStyles(JSON.parse(serialized_state));
     if (!isValidPresentationState(parsed_state)) return serializationFailure();
     const integrity_status =
       options === undefined
@@ -1601,9 +1604,11 @@ function isValidTextStyle(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const expected_keys = [
     "role",
-    "font",
+    "fontFamily",
     "fontSize",
     "fontWeight",
+    "lineHeight",
+    "letterSpacing",
     "color",
     "alignment",
   ];
@@ -1617,14 +1622,46 @@ function isValidTextStyle(value: unknown): boolean {
       value.role === "H2" ||
       value.role === "H3" ||
       value.role === "Paragraph") &&
-    isNonBlankString(value.font) &&
+    isTextFontFamily(value.fontFamily) &&
     isPositiveNumber(value.fontSize) &&
-    isPositiveNumber(value.fontWeight) &&
+    isTextFontWeight(value.fontWeight) &&
+    isPositiveNumber(value.lineHeight) &&
+    isFiniteNumber(value.letterSpacing) &&
     isNonBlankString(value.color) &&
     (value.gradient === undefined || isNonBlankString(value.gradient)) &&
-    isNonBlankString(value.alignment)
+    isTextAlignment(value.alignment)
   );
 }
+
+function migrateLegacyTextStyles(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(migrateLegacyTextStyles);
+  if (!isRecord(value)) return value;
+
+  const migrated = Object.fromEntries(
+    Object.entries(value).map(([key, nested_value]) => [
+      key,
+      migrateLegacyTextStyles(nested_value),
+    ]),
+  );
+  if (migrated.type !== "text" || !isRecord(migrated.style)) return migrated;
+
+  const { font, ...style } = migrated.style;
+  return {
+    ...migrated,
+    style: {
+      ...style,
+      fontFamily: migrateTextFontFamily(style.fontFamily ?? font),
+      lineHeight: typeof style.lineHeight === "number" ? style.lineHeight : 1.2,
+      letterSpacing:
+        typeof style.letterSpacing === "number" ? style.letterSpacing : 0,
+    },
+  };
+}
+
+function migrateTextFontFamily(value: unknown) {
+  return isTextFontFamily(value) ? value : "Geist";
+}
+
 function isValidImageStyle(value: unknown): boolean {
   return (
     isRecordWithKeys(value, ["objectFit", "borderRadius"]) &&

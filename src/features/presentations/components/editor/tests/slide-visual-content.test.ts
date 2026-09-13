@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { getShapeViewportStyle } from "../slide-visual-content";
+import {
+  getCanvasRelativeLength,
+  getShapeViewportStyle,
+} from "../slide-visual-content";
 
 const source = readFileSync(
   new URL("../slide-visual-content.tsx", import.meta.url),
@@ -88,45 +91,60 @@ test("renders filled shapes without a border when border width is zero", () => {
     source,
     /const shape_border_width = element\.style\.borderWidth;/,
   );
-  assert.match(source, /strokeWidth: shape_border_width/);
+  assert.match(
+    source,
+    /strokeWidth: getCanvasRelativeLength\(shape_border_width, canvas\.width\)/,
+  );
   assert.match(
     source,
     /const line_stroke_width = Math\.max\(1, element\.style\.borderWidth\);/,
   );
-  assert.match(source, /strokeWidth: line_stroke_width/);
+  assert.match(
+    source,
+    /strokeWidth: getCanvasRelativeLength\(line_stroke_width, canvas\.width\)/,
+  );
 });
 
 test("keeps zero-width circle and heart geometry flush with their layout bounds", () => {
   const expected_viewport = {
-    height: "calc(100% - 0px)",
-    left: "0px",
-    top: "0px",
-    width: "calc(100% - 0px)",
+    height: "calc(100% - 0cqw)",
+    left: "0cqw",
+    top: "0cqw",
+    width: "calc(100% - 0cqw)",
   };
 
-  assert.deepEqual(getShapeViewportStyle("circle", 0), expected_viewport);
-  assert.deepEqual(getShapeViewportStyle("heart", 0), expected_viewport);
+  assert.deepEqual(getShapeViewportStyle("circle", 0, 1920), expected_viewport);
+  assert.deepEqual(getShapeViewportStyle("heart", 0, 1920), expected_viewport);
 });
 
 test("reserves thick circle and heart borders inside their selectable layout bounds", () => {
   const expected_viewport = {
-    height: "calc(100% - 24px)",
-    left: "12px",
-    top: "12px",
-    width: "calc(100% - 24px)",
+    height: "calc(100% - 1.25cqw)",
+    left: "0.625cqw",
+    top: "0.625cqw",
+    width: "calc(100% - 1.25cqw)",
   };
 
-  assert.deepEqual(getShapeViewportStyle("circle", 24), expected_viewport);
-  assert.deepEqual(getShapeViewportStyle("heart", 24), expected_viewport);
+  assert.deepEqual(
+    getShapeViewportStyle("circle", 24, 1920),
+    expected_viewport,
+  );
+  assert.deepEqual(getShapeViewportStyle("heart", 24, 1920), expected_viewport);
   assert.match(source, /className="relative size-full overflow-hidden"/);
   assert.match(source, /overflow="visible"/);
 });
 
 test("keeps line-family viewport bounds unchanged by border reservation", () => {
-  assert.deepEqual(getShapeViewportStyle("line", 24), {
+  assert.deepEqual(getShapeViewportStyle("line", 24, 1920), {
     height: "100%",
     left: "0",
     top: "0",
     width: "100%",
   });
+});
+
+test("scales non-scaling shape strokes with the slide container", () => {
+  assert.equal(getCanvasRelativeLength(24, 1920), "1.25cqw");
+  assert.match(source, /\$\{\(logical_length \/ canvas_width\) \* 100\}cqw/);
+  assert.match(source, /vectorEffect: "non-scaling-stroke"/);
 });

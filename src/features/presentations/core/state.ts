@@ -40,9 +40,11 @@ export function addInitialRevision(
       animations: [],
       style: {
         role: "Paragraph",
-        font: "Arial",
+        fontFamily: "Geist",
         fontSize: 16,
         fontWeight: 400,
+        lineHeight: 1.2,
+        letterSpacing: 0,
         color: "#000000",
         alignment: "left",
         ...element.style,

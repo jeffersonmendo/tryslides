@@ -877,9 +877,11 @@ test("persists text creation, editing, undo, redo, and reload through the editor
   assert.equal(reloaded_text.content, "Welcome to Tryslides");
   assert.deepEqual(reloaded_text.style, {
     role: "Paragraph",
-    font: "Arial",
+    fontFamily: "Geist",
     fontSize: 64,
     fontWeight: 700,
+    lineHeight: 1.2,
+    letterSpacing: 0,
     color: "#112233",
     alignment: "left",
   });

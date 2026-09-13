@@ -524,6 +524,10 @@ export function editElements(
 ): CommandResult {
   const slide_index = findSlideIndex(state, input.slideId);
   if (slide_index === -1) return failure(state, "SLIDE_NOT_FOUND");
+  // Shared content replacement is never a valid bulk operation. Text content
+  // must be deliberately edited through the single-element command.
+  if (Object.hasOwn(input.patch, "content"))
+    return failure(state, "VALIDATION_ERROR");
   if (
     input.elementIds.length === 0 ||
     new Set(input.elementIds).size !== input.elementIds.length

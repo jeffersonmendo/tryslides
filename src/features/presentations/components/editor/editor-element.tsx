@@ -4,6 +4,7 @@ import { useDraggable } from "@dnd-kit/react";
 import { IconRotate2 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { getPresentationFontStack } from "@/features/presentations/core/presentation-core";
 import {
   type CenterResizeHandle,
   cancelRotationPreview,
@@ -598,10 +599,12 @@ function CanvasText({
       className="block size-full overflow-visible whitespace-pre-wrap outline-none"
       style={{
         color: element.style.color,
-        fontFamily: "Arial, sans-serif",
+        fontFamily: getPresentationFontStack(element.style.fontFamily),
         fontSize: `${(element.style.fontSize / canvas.width) * 100}cqw`,
         fontWeight: element.style.fontWeight,
-        textAlign: element.style.alignment as "left" | "center" | "right",
+        letterSpacing: `${(element.style.letterSpacing / canvas.width) * 100}cqw`,
+        lineHeight: element.style.lineHeight,
+        textAlign: element.style.alignment,
       }}
       onDoubleClick={(event) => {
         event.preventDefault();

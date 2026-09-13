@@ -1,6 +1,9 @@
 import type {
   ShapeType,
   SlideBackground,
+  TextAlignment,
+  TextFontFamily,
+  TextFontWeight,
 } from "@/features/presentations/core/presentation-core";
 
 export type EditorSlide = {
@@ -15,10 +18,13 @@ export type EditorSlide = {
 
 export type EditorTextStyle = {
   readonly role: "H1" | "H2" | "H3" | "Paragraph";
+  readonly fontFamily: TextFontFamily;
   readonly fontSize: number;
-  readonly fontWeight: number;
+  readonly fontWeight: TextFontWeight;
+  readonly lineHeight: number;
+  readonly letterSpacing: number;
   readonly color: string;
-  readonly alignment: string;
+  readonly alignment: TextAlignment;
 };
 
 export type EditorTextElement = {

@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import type { ComponentPropsWithRef, ReactNode } from "react";
+import { getPresentationFontStack } from "@/features/presentations/core/presentation-core";
 import type {
   EditorElement,
   EditorShapeElement,
@@ -107,10 +108,12 @@ export function SlideElementContent({
         className="block size-full overflow-visible whitespace-pre-wrap"
         style={{
           color: element.style.color,
-          fontFamily: "Arial, sans-serif",
+          fontFamily: getPresentationFontStack(element.style.fontFamily),
           fontSize: `${(element.style.fontSize / canvas.width) * 100}cqw`,
           fontWeight: element.style.fontWeight,
-          textAlign: element.style.alignment as "left" | "center" | "right",
+          letterSpacing: `${(element.style.letterSpacing / canvas.width) * 100}cqw`,
+          lineHeight: element.style.lineHeight,
+          textAlign: element.style.alignment,
         }}
       >
         {element.content}
@@ -133,12 +136,14 @@ export function SlideElementContent({
         }}
       />
     );
-  return <ShapeVisual element={element} />;
+  return <ShapeVisual canvas={canvas} element={element} />;
 }
 
 function ShapeVisual({
+  canvas,
   element,
 }: {
+  readonly canvas: { readonly width: number };
   readonly element: Extract<EditorElement, { readonly type: "shape" }>;
 }) {
   const shape_border_width = element.style.borderWidth;
@@ -146,17 +151,18 @@ function ShapeVisual({
   const shape_viewport_style = getShapeViewportStyle(
     element.shapeType,
     shape_border_width,
+    canvas.width,
   );
   const shape_style = {
     fill: element.style.fill,
     stroke: element.style.border,
-    strokeWidth: shape_border_width,
+    strokeWidth: getCanvasRelativeLength(shape_border_width, canvas.width),
     vectorEffect: "non-scaling-stroke" as const,
   };
   const line_style = {
     fill: "none",
     stroke: element.style.fill,
-    strokeWidth: line_stroke_width,
+    strokeWidth: getCanvasRelativeLength(line_stroke_width, canvas.width),
     vectorEffect: "non-scaling-stroke" as const,
   };
 
@@ -181,17 +187,34 @@ function ShapeVisual({
 export function getShapeViewportStyle(
   shape_type: EditorShapeElement["shapeType"],
   border_width: number,
+  canvas_width: number,
 ) {
   if (isLineShape(shape_type)) {
     return { height: "100%", left: "0", top: "0", width: "100%" };
   }
 
+  const responsive_border_width = getCanvasRelativeLength(
+    border_width,
+    canvas_width,
+  );
+  const responsive_half_border_width = getCanvasRelativeLength(
+    border_width / 2,
+    canvas_width,
+  );
+
   return {
-    height: `calc(100% - ${border_width}px)`,
-    left: `${border_width / 2}px`,
-    top: `${border_width / 2}px`,
-    width: `calc(100% - ${border_width}px)`,
+    height: `calc(100% - ${responsive_border_width})`,
+    left: responsive_half_border_width,
+    top: responsive_half_border_width,
+    width: `calc(100% - ${responsive_border_width})`,
   };
+}
+
+export function getCanvasRelativeLength(
+  logical_length: number,
+  canvas_width: number,
+): string {
+  return `${(logical_length / canvas_width) * 100}cqw`;
 }
 
 function isLineShape(shape_type: EditorShapeElement["shapeType"]): boolean {
@@ -213,12 +236,12 @@ function getShapeMark(
   shape_style: {
     readonly fill: string;
     readonly stroke: string;
-    readonly strokeWidth: number;
+    readonly strokeWidth: string;
   },
   line_style: {
     readonly fill: string;
     readonly stroke: string;
-    readonly strokeWidth: number;
+    readonly strokeWidth: string;
   },
 ) {
   switch (element.shapeType) {

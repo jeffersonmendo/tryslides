@@ -13,8 +13,11 @@ const text: EditorElement = {
   rotation: 0,
   style: {
     role: "Paragraph",
+    fontFamily: "Geist",
     fontSize: 16,
     fontWeight: 400,
+    lineHeight: 1.2,
+    letterSpacing: 0,
     color: "#000000",
     alignment: "left",
   },
@@ -50,6 +53,7 @@ test("intersects only properties meaningful to every selected element", () => {
     shape: false,
     shapeBorder: false,
     shapeRadius: false,
+    shapeStroke: false,
   });
   assert.deepEqual(
     getGroupInspectorCapabilities([text, { ...text, id: "text_2" }]),
@@ -59,6 +63,7 @@ test("intersects only properties meaningful to every selected element", () => {
       shape: false,
       shapeBorder: false,
       shapeRadius: false,
+      shapeStroke: false,
     },
   );
   assert.deepEqual(
@@ -69,6 +74,7 @@ test("intersects only properties meaningful to every selected element", () => {
       shape: false,
       shapeBorder: false,
       shapeRadius: false,
+      shapeStroke: false,
     },
   );
   assert.deepEqual(
@@ -82,6 +88,7 @@ test("intersects only properties meaningful to every selected element", () => {
       shape: true,
       shapeBorder: true,
       shapeRadius: true,
+      shapeStroke: false,
     },
   );
   assert.deepEqual(getGroupInspectorCapabilities([rectangle, line]), {
@@ -90,5 +97,14 @@ test("intersects only properties meaningful to every selected element", () => {
     shape: true,
     shapeBorder: false,
     shapeRadius: false,
+    shapeStroke: false,
+  });
+  assert.deepEqual(getGroupInspectorCapabilities([line]), {
+    text: false,
+    image: false,
+    shape: true,
+    shapeBorder: false,
+    shapeRadius: false,
+    shapeStroke: true,
   });
 });

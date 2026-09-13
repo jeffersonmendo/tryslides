@@ -7,6 +7,7 @@ import {
   IconAlignBoxRightMiddleFilled,
   IconAlignBoxTopCenterFilled,
   IconAlignCenter,
+  IconAlignJustified,
   IconAlignLeft2,
   IconAlignRight2,
   IconLayoutAlignBottomFilled,
@@ -15,6 +16,8 @@ import {
   IconLayoutAlignMiddleFilled,
   IconLayoutAlignRightFilled,
   IconLayoutAlignTopFilled,
+  IconLetterSpacing,
+  IconLineHeight,
   IconSpacingHorizontal,
   IconSpacingVertical,
 } from "@tabler/icons-react";
@@ -44,6 +47,13 @@ import {
 } from "@/components/ui/tooltip";
 import type { ElementPatch } from "@/features/presentations/core/presentation-core";
 import {
+  isTextAlignment,
+  isTextFontWeight,
+  TEXT_FONT_WEIGHTS,
+  type TextFontWeight,
+} from "@/features/presentations/core/presentation-core";
+import { FontFamilyCombobox } from "./font-family-combobox";
+import {
   InspectorColorField,
   InspectorNumericField,
 } from "./inspector-controls";
@@ -70,14 +80,25 @@ type GroupInspectorLabels = {
   readonly referenceAlignmentStatusSet: string;
   readonly referenceAlignmentStatusNone: string;
   readonly fontSize: string;
+  readonly fontFamily: string;
   readonly fontWeight: string;
+  readonly lineHeight: string;
+  readonly letterSpacing: string;
   readonly fontWeightBold: string;
   readonly fontWeightRegular: string;
+  readonly fontWeightThin: string;
+  readonly fontWeightExtraLight: string;
+  readonly fontWeightLight: string;
+  readonly fontWeightMedium: string;
+  readonly fontWeightSemiBold: string;
+  readonly fontWeightExtraBold: string;
+  readonly fontWeightBlack: string;
   readonly color: string;
   readonly alignment: string;
   readonly alignmentLeft: string;
   readonly alignmentCenter: string;
   readonly alignmentRight: string;
+  readonly alignmentJustify: string;
   readonly fit: string;
   readonly fitContain: string;
   readonly fitCover: string;
@@ -85,6 +106,8 @@ type GroupInspectorLabels = {
   readonly fill: string;
   readonly border: string;
   readonly borderWidth: string;
+  readonly stroke: string;
+  readonly strokeWidth: string;
   readonly distributeHorizontally: string;
   readonly distributeVertically: string;
   readonly gap: string;
@@ -255,6 +278,13 @@ export function GroupInspector({
           {labels.appearance}
         </FieldLegend>
         <FieldGroup className="gap-4">
+          {capabilities.text ? (
+            <TextAlignmentField
+              elements={elements}
+              labels={labels}
+              onPatchCommit={onPatchCommit}
+            />
+          ) : null}
           <Field>
             <InspectorOpacitySlider
               id="group-opacity"
@@ -312,14 +342,25 @@ function getGroupInspectorLabels(
     referenceAlignmentStatusSet: t("referenceAlignmentStatusSet"),
     referenceAlignmentStatusNone: t("referenceAlignmentStatusNone"),
     fontSize: t("fontSize"),
+    fontFamily: t("fontFamily"),
     fontWeight: t("fontWeight"),
+    lineHeight: t("lineHeight"),
+    letterSpacing: t("letterSpacing"),
     fontWeightBold: t("fontWeightBold"),
     fontWeightRegular: t("fontWeightRegular"),
+    fontWeightThin: t("fontWeightThin"),
+    fontWeightExtraLight: t("fontWeightExtraLight"),
+    fontWeightLight: t("fontWeightLight"),
+    fontWeightMedium: t("fontWeightMedium"),
+    fontWeightSemiBold: t("fontWeightSemiBold"),
+    fontWeightExtraBold: t("fontWeightExtraBold"),
+    fontWeightBlack: t("fontWeightBlack"),
     color: t("color"),
     alignment: t("alignment"),
     alignmentLeft: t("alignmentLeft"),
     alignmentCenter: t("alignmentCenter"),
     alignmentRight: t("alignmentRight"),
+    alignmentJustify: t("alignmentJustify"),
     fit: t("fit"),
     fitContain: t("fitContain"),
     fitCover: t("fitCover"),
@@ -327,6 +368,8 @@ function getGroupInspectorLabels(
     fill: t("fill"),
     border: t("border"),
     borderWidth: t("borderWidth"),
+    stroke: t("stroke"),
+    strokeWidth: t("strokeWidth"),
     distributeHorizontally: t("distributeHorizontally"),
     distributeVertically: t("distributeVertically"),
     gap: t("gap"),
@@ -458,15 +501,27 @@ function TextAppearanceFields({
   const font_size = getSharedValue(
     text.map((element) => element.style.fontSize),
   );
+  const font_family = getSharedValue(
+    text.map((element) => element.style.fontFamily),
+  );
   const font_weight = getSharedValue(
     text.map((element) => element.style.fontWeight),
   );
-  const color = getSharedValue(text.map((element) => element.style.color));
-  const alignment = getSharedValue(
-    text.map((element) => element.style.alignment),
+  const line_height = getSharedValue(
+    text.map((element) => element.style.lineHeight),
   );
+  const letter_spacing = getSharedValue(
+    text.map((element) => element.style.letterSpacing),
+  );
+  const color = getSharedValue(text.map((element) => element.style.color));
   return (
     <>
+      <FontFamilyCombobox
+        value={font_family}
+        onValueChange={(font_family) =>
+          onPatchCommit({ style: { fontFamily: font_family } })
+        }
+      />
       <Field>
         <FieldLabel>{labels.fontSize}</FieldLabel>
         <UnitInput
@@ -485,27 +540,64 @@ function TextAppearanceFields({
         />
       </Field>
       <Field>
+        <FieldLabel>{labels.lineHeight}</FieldLabel>
+        <UnitInput
+          aria-label={labels.lineHeight}
+          leading={<IconLineHeight aria-hidden />}
+          value={line_height ?? ""}
+          min="0.1"
+          step="0.1"
+          isValid={(value) =>
+            isValidNumericDraft(value, (number) => number > 0)
+          }
+          onCommit={(value) =>
+            onPatchCommit({ style: { lineHeight: Number(value) } })
+          }
+          onDraftChange={(value) =>
+            onPatch({ style: { lineHeight: Number(value) } })
+          }
+        />
+      </Field>
+      <Field>
+        <FieldLabel>{labels.letterSpacing}</FieldLabel>
+        <UnitInput
+          aria-label={labels.letterSpacing}
+          leading={<IconLetterSpacing aria-hidden />}
+          value={letter_spacing ?? ""}
+          unit="px"
+          isValid={(value) => isValidNumericDraft(value, () => true)}
+          onCommit={(value) =>
+            onPatchCommit({ style: { letterSpacing: Number(value) } })
+          }
+          onDraftChange={(value) =>
+            onPatch({ style: { letterSpacing: Number(value) } })
+          }
+        />
+      </Field>
+      <Field>
         <FieldLabel>{labels.fontWeight}</FieldLabel>
         <Select
           value={font_weight === null ? null : String(font_weight)}
           onValueChange={(value) => {
-            if (value === "400" || value === "700")
-              onPatchCommit({ style: { fontWeight: Number(value) } });
+            const font_weight = Number(value);
+            if (isTextFontWeight(font_weight))
+              onPatchCommit({ style: { fontWeight: font_weight } });
           }}
         >
           <SelectTrigger>
             <SelectValue>
               {font_weight === null
                 ? "—"
-                : font_weight === 700
-                  ? labels.fontWeightBold
-                  : labels.fontWeightRegular}
+                : getFontWeightLabel(font_weight, labels)}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="400">{labels.fontWeightRegular}</SelectItem>
-              <SelectItem value="700">{labels.fontWeightBold}</SelectItem>
+              {TEXT_FONT_WEIGHTS.map((font_weight) => (
+                <SelectItem key={font_weight} value={String(font_weight)}>
+                  {getFontWeightLabel(font_weight, labels)}
+                </SelectItem>
+              ))}
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -518,37 +610,61 @@ function TextAppearanceFields({
         onChange={(value) => onPatch({ style: { color: value } })}
         onCommit={(value) => onPatchCommit({ style: { color: value } })}
       />
-      <Field>
-        <FieldLabel>{labels.alignment}</FieldLabel>
-        <ToggleGroup
-          aria-label={labels.alignment}
-          className="grid grid-cols-3"
-          size="sm"
-          variant="ghost"
-          value={alignment === null ? [] : [alignment]}
-          onValueChange={(value) => {
-            if (value[0] !== undefined)
-              onPatchCommit({ style: { alignment: value[0] } });
-          }}
-        >
-          <IconToggleItem
-            icon={<IconAlignLeft2 stroke={2} />}
-            label={labels.alignmentLeft}
-            value="left"
-          />
-          <IconToggleItem
-            icon={<IconAlignCenter stroke={2} />}
-            label={labels.alignmentCenter}
-            value="center"
-          />
-          <IconToggleItem
-            icon={<IconAlignRight2 stroke={2} />}
-            label={labels.alignmentRight}
-            value="right"
-          />
-        </ToggleGroup>
-      </Field>
     </>
+  );
+}
+
+function TextAlignmentField({
+  elements,
+  labels,
+  onPatchCommit,
+}: Pick<GroupInspectorProps, "elements" | "onPatchCommit"> & {
+  readonly labels: GroupInspectorLabels;
+}) {
+  const text = elements as readonly Extract<
+    EditorElement,
+    { readonly type: "text" }
+  >[];
+  const alignment = getSharedValue(
+    text.map((element) => element.style.alignment),
+  );
+  return (
+    <Field>
+      <FieldLabel>{labels.alignment}</FieldLabel>
+      <ToggleGroup
+        aria-label={labels.alignment}
+        className="grid grid-cols-4"
+        size="sm"
+        variant="ghost"
+        value={alignment === null ? [] : [alignment]}
+        onValueChange={(value) => {
+          const selected_alignment = value[0];
+          if (isTextAlignment(selected_alignment))
+            onPatchCommit({ style: { alignment: selected_alignment } });
+        }}
+      >
+        <IconToggleItem
+          icon={<IconAlignLeft2 stroke={2} />}
+          label={labels.alignmentLeft}
+          value="left"
+        />
+        <IconToggleItem
+          icon={<IconAlignCenter stroke={2} />}
+          label={labels.alignmentCenter}
+          value="center"
+        />
+        <IconToggleItem
+          icon={<IconAlignRight2 stroke={2} />}
+          label={labels.alignmentRight}
+          value="right"
+        />
+        <IconToggleItem
+          icon={<IconAlignJustified stroke={2} />}
+          label={labels.alignmentJustify}
+          value="justify"
+        />
+      </ToggleGroup>
+    </Field>
   );
 }
 
@@ -637,12 +753,13 @@ function ShapeAppearanceFields({
     shapes.map((element) => element.style.borderWidth),
   );
   const radius = getSharedValue(shapes.map((element) => element.style.radius));
+  const uses_stroke = capabilities.shapeStroke;
   return (
     <>
       <InspectorColorField
         acceptedValue={fill ?? "#000000"}
         id="group-shape-fill"
-        label={labels.fill}
+        label={uses_stroke ? labels.stroke : labels.fill}
         value={fill ?? "#000000"}
         onChange={(value) => onPatch({ style: { fill: value } })}
         onCommit={(value) => onPatchCommit({ style: { fill: value } })}
@@ -658,7 +775,9 @@ function ShapeAppearanceFields({
         />
       ) : null}
       <Field>
-        <FieldLabel>{labels.borderWidth}</FieldLabel>
+        <FieldLabel>
+          {uses_stroke ? labels.strokeWidth : labels.borderWidth}
+        </FieldLabel>
         <UnitInput
           min="0"
           value={border_width ?? ""}
@@ -848,6 +967,7 @@ function IconToggleItem({
 function UnitInput({
   onCommit,
   unit,
+  leading,
   value,
   isValid,
   onDraftChange,
@@ -861,12 +981,14 @@ function UnitInput({
   readonly isValid: (value: string) => boolean;
   readonly onCommit: (value: string) => void;
   readonly onDraftChange: (value: string) => void;
-  readonly unit: string;
+  readonly unit?: string;
+  readonly leading?: React.ReactNode;
 }) {
   return (
     <InspectorNumericField
       {...props}
       ariaLabel={aria_label}
+      leading={leading}
       unit={unit}
       value={value === "" ? "" : Number(value)}
       isValid={(number) => isValid(String(number))}
@@ -935,7 +1057,28 @@ function isTextRole(
     value !== null && TEXT_ROLES.includes(value as (typeof TEXT_ROLES)[number])
   );
 }
-function getTextRolePreset(role: (typeof TEXT_ROLES)[number]) {
+function getFontWeightLabel(
+  font_weight: TextFontWeight,
+  labels: GroupInspectorLabels,
+): string {
+  return {
+    100: labels.fontWeightThin,
+    200: labels.fontWeightExtraLight,
+    300: labels.fontWeightLight,
+    400: labels.fontWeightRegular,
+    500: labels.fontWeightMedium,
+    600: labels.fontWeightSemiBold,
+    700: labels.fontWeightBold,
+    800: labels.fontWeightExtraBold,
+    900: labels.fontWeightBlack,
+  }[font_weight];
+}
+function getTextRolePreset(
+  role: (typeof TEXT_ROLES)[number],
+): Pick<
+  Extract<EditorElement, { readonly type: "text" }>["style"],
+  "fontSize" | "fontWeight"
+> {
   return role === "H1"
     ? { fontSize: 64, fontWeight: 700 }
     : role === "H2"

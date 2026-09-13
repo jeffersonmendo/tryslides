@@ -20,6 +20,7 @@ type InspectorNumericFieldProps = {
   readonly label?: string;
   readonly ariaLabel?: string;
   readonly prefix?: string;
+  readonly leading?: React.ReactNode;
   readonly unit?: string;
   readonly value: number | "";
   readonly min?: number | string;
@@ -34,6 +35,7 @@ export function InspectorNumericField({
   label,
   ariaLabel,
   prefix,
+  leading,
   unit,
   value,
   min,
@@ -44,9 +46,9 @@ export function InspectorNumericField({
 }: InspectorNumericFieldProps) {
   const input = (
     <InputGroup>
-      {prefix === undefined ? null : (
+      {prefix === undefined && leading === undefined ? null : (
         <InputGroupAddon align="inline-start">
-          <InputGroupText>{prefix}</InputGroupText>
+          <InputGroupText>{leading ?? prefix}</InputGroupText>
         </InputGroupAddon>
       )}
       <InspectorDraftInput

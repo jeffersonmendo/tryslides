@@ -1,3 +1,8 @@
+import {
+  PRESENTATION_FONT_IDS,
+  type PresentationFontId,
+} from "./presentation-font-catalog";
+
 export type OperationSource = "user" | "system" | "ai" | "mcp";
 export type PresentationStatus = "draft" | "published";
 export type PresentationLifecycle = {
@@ -63,17 +68,27 @@ export type AnimationType =
   | "rotate";
 export type TransitionType = "none" | "fade" | "slide" | "scale";
 export type ElementType = "text" | "image" | "shape";
+export const TEXT_FONT_FAMILIES = PRESENTATION_FONT_IDS;
+export type TextFontFamily = PresentationFontId;
+export const TEXT_FONT_WEIGHTS = [
+  100, 200, 300, 400, 500, 600, 700, 800, 900,
+] as const;
+export type TextFontWeight = (typeof TEXT_FONT_WEIGHTS)[number];
+export const TEXT_ALIGNMENTS = ["left", "center", "right", "justify"] as const;
+export type TextAlignment = (typeof TEXT_ALIGNMENTS)[number];
 export type SlideBackground =
   | { readonly type: "solid"; readonly color: string }
   | { readonly type: "gradient"; readonly gradient: string };
 export type TextStyle = {
   readonly role: "H1" | "H2" | "H3" | "Paragraph";
-  readonly font: string;
+  readonly fontFamily: TextFontFamily;
   readonly fontSize: number;
-  readonly fontWeight: number;
+  readonly fontWeight: TextFontWeight;
+  readonly lineHeight: number;
+  readonly letterSpacing: number;
   readonly color: string;
   readonly gradient?: string;
-  readonly alignment: string;
+  readonly alignment: TextAlignment;
 };
 export type ImageStyle = {
   readonly objectFit: string;

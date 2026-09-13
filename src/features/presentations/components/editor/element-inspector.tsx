@@ -298,6 +298,8 @@ function getElementInspectorLabels(t: ReturnType<typeof useTranslations>) {
       "fill",
       "border",
       "borderWidth",
+      "stroke",
+      "strokeWidth",
       "radius",
       "fit",
       "fitContain",
@@ -437,11 +439,12 @@ function ShapeFields({
   readonly onPatch: (patch: ElementPatch) => void;
   readonly onPatchCommit: (patch: ElementPatch) => void;
 }) {
+  const uses_stroke = isLineShape(element.shapeType);
   return (
     <>
       <ColorField
         id={`fill-${element.id}`}
-        label={labels.fill}
+        label={uses_stroke ? labels.stroke : labels.fill}
         value={element.style.fill}
         acceptedValue={acceptedElement?.style.fill ?? element.style.fill}
         onChange={(fill) => onPatch({ style: { fill } })}
@@ -459,7 +462,7 @@ function ShapeFields({
       )}
       <UnitStyleField
         id={`border-width-${element.id}`}
-        label={labels.borderWidth}
+        label={uses_stroke ? labels.strokeWidth : labels.borderWidth}
         value={element.style.borderWidth}
         onChange={(border_width) =>
           onPatch({ style: { borderWidth: border_width } })

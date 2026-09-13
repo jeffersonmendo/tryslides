@@ -44,6 +44,17 @@ export {
   undoSlide,
 } from "./commands";
 export { isHistoryEntryApplicableToSlide } from "./history";
+export type {
+  PresentationFontAsset,
+  PresentationFontDefinition,
+  PresentationFontId,
+} from "./presentation-font-catalog";
+export {
+  getPresentationFontDefinition,
+  getPresentationFontStack,
+  PRESENTATION_FONT_CATALOG,
+  PRESENTATION_FONT_IDS,
+} from "./presentation-font-catalog";
 export {
   deserializePresentationState,
   isPresentationOperationCompatibleWithState,
@@ -124,7 +135,10 @@ export type {
   SlideBackground,
   SlidePatch,
   SlideTransition,
+  TextAlignment,
   TextElement,
+  TextFontFamily,
+  TextFontWeight,
   TextStyle,
   TextStylePatch,
   TransitionCapability,
@@ -132,8 +146,16 @@ export type {
   TransitionType,
   VerifyPresentationSnapshotReceipt,
 } from "./types";
-export { PRESENTATION_CANVAS } from "./types";
 export {
+  PRESENTATION_CANVAS,
+  TEXT_ALIGNMENTS,
+  TEXT_FONT_FAMILIES,
+  TEXT_FONT_WEIGHTS,
+} from "./types";
+export {
+  isTextAlignment,
+  isTextFontFamily,
+  isTextFontWeight,
   isValidPresentationId,
   isValidPresentationRevision,
   isValidPublicId,

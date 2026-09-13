@@ -2,6 +2,7 @@
 
 import {
   IconAlignCenter,
+  IconAlignJustified,
   IconAlignLeft2,
   IconAlignRight2,
   IconChevronDown,
@@ -14,6 +15,8 @@ import {
   IconLayoutAlignMiddleFilled,
   IconLayoutAlignRightFilled,
   IconLayoutAlignTopFilled,
+  IconLetterSpacing,
+  IconLineHeight,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import {
@@ -45,7 +48,14 @@ import {
 import type {
   ElementPatch,
   ElementPosition,
+  TextFontWeight,
 } from "@/features/presentations/core/presentation-core";
+import {
+  isTextAlignment,
+  isTextFontWeight,
+  TEXT_FONT_WEIGHTS,
+} from "@/features/presentations/core/presentation-core";
+import { FontFamilyCombobox } from "./font-family-combobox";
 import {
   InspectorColorField,
   InspectorGeometryPair,
@@ -269,6 +279,44 @@ export function TextInspector({
         </FieldLegend>
         <FieldGroup className="gap-4">
           <Field>
+            <FieldLabel>{labels.alignment}</FieldLabel>
+            <ToggleGroup
+              aria-label={labels.alignment}
+              className="grid grid-cols-4"
+              size="sm"
+              variant="ghost"
+              value={[text.style.alignment]}
+              onValueChange={(value) => {
+                const alignment = value[0];
+
+                if (isTextAlignment(alignment)) {
+                  onStyleApply({ alignment });
+                }
+              }}
+            >
+              <AlignmentToggleItem
+                icon={<IconAlignLeft2 stroke={2} />}
+                label={labels.alignmentLeft}
+                value="left"
+              />
+              <AlignmentToggleItem
+                icon={<IconAlignCenter stroke={2} />}
+                label={labels.alignmentCenter}
+                value="center"
+              />
+              <AlignmentToggleItem
+                icon={<IconAlignRight2 stroke={2} />}
+                label={labels.alignmentRight}
+                value="right"
+              />
+              <AlignmentToggleItem
+                icon={<IconAlignJustified stroke={2} />}
+                label={labels.alignmentJustify}
+                value="justify"
+              />
+            </ToggleGroup>
+          </Field>
+          <Field>
             <InspectorOpacitySlider
               id={`opacity-${text.id}`}
               opacity={text.opacity}
@@ -276,6 +324,12 @@ export function TextInspector({
               onCommit={(opacity) => onPatchCommit({ opacity })}
             />
           </Field>
+          <FontFamilyCombobox
+            value={text.style.fontFamily}
+            onValueChange={(font_family) =>
+              onStyleApply({ fontFamily: font_family })
+            }
+          />
           <Field>
             <FieldLabel htmlFor={`text-font-size-${text.id}`}>
               {labels.fontSize}
@@ -296,16 +350,51 @@ export function TextInspector({
             />
           </Field>
           <Field>
+            <FieldLabel htmlFor={`text-line-height-${text.id}`}>
+              {labels.lineHeight}
+            </FieldLabel>
+            <UnitDraftInput
+              id={`text-line-height-${text.id}`}
+              leading={<IconLineHeight aria-hidden />}
+              min="0.1"
+              step="0.1"
+              type="number"
+              value={text.style.lineHeight}
+              isValid={(value) =>
+                isValidNumericDraft(value, (number) => number > 0)
+              }
+              onCommit={(value) => onStyleCommit({ lineHeight: Number(value) })}
+              onDraftChange={(value) =>
+                onStyleChange({ lineHeight: Number(value) })
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`text-letter-spacing-${text.id}`}>
+              {labels.letterSpacing}
+            </FieldLabel>
+            <UnitDraftInput
+              id={`text-letter-spacing-${text.id}`}
+              leading={<IconLetterSpacing aria-hidden />}
+              type="number"
+              unit="px"
+              value={text.style.letterSpacing}
+              isValid={(value) => isValidNumericDraft(value, () => true)}
+              onCommit={(value) =>
+                onStyleCommit({ letterSpacing: Number(value) })
+              }
+              onDraftChange={(value) =>
+                onStyleChange({ letterSpacing: Number(value) })
+              }
+            />
+          </Field>
+          <Field>
             <FieldLabel>{labels.fontWeight}</FieldLabel>
             <Select
               value={String(text.style.fontWeight)}
               onValueChange={(value) => {
                 const font_weight = Number(value);
-                if (
-                  value !== null &&
-                  Number.isFinite(font_weight) &&
-                  font_weight > 0
-                ) {
+                if (isTextFontWeight(font_weight)) {
                   onStyleApply({ fontWeight: font_weight });
                 }
               }}
@@ -317,10 +406,11 @@ export function TextInspector({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="400">
-                    {labels.fontWeightRegular}
-                  </SelectItem>
-                  <SelectItem value="700">{labels.fontWeightBold}</SelectItem>
+                  {TEXT_FONT_WEIGHTS.map((font_weight) => (
+                    <SelectItem key={font_weight} value={String(font_weight)}>
+                      {getFontWeightLabel(font_weight, labels)}
+                    </SelectItem>
+                  ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -333,39 +423,6 @@ export function TextInspector({
             onChange={(color) => onStyleChange({ color })}
             onCommit={(color) => onStyleCommit({ color })}
           />
-          <Field>
-            <FieldLabel>{labels.alignment}</FieldLabel>
-            <ToggleGroup
-              aria-label={labels.alignment}
-              className="grid grid-cols-3"
-              size="sm"
-              variant="ghost"
-              value={[text.style.alignment]}
-              onValueChange={(value) => {
-                const alignment = value[0];
-
-                if (alignment !== undefined) {
-                  onStyleApply({ alignment });
-                }
-              }}
-            >
-              <AlignmentToggleItem
-                icon={<IconAlignLeft2 stroke={2} />}
-                label={labels.alignmentLeft}
-                value="left"
-              />
-              <AlignmentToggleItem
-                icon={<IconAlignCenter stroke={2} />}
-                label={labels.alignmentCenter}
-                value="center"
-              />
-              <AlignmentToggleItem
-                icon={<IconAlignRight2 stroke={2} />}
-                label={labels.alignmentRight}
-                value="right"
-              />
-            </ToggleGroup>
-          </Field>
         </FieldGroup>
       </FieldSet>
     </FieldGroup>
@@ -400,17 +457,19 @@ function PositionFields({
 function UnitDraftInput({
   onCommit,
   context,
+  leading,
   unit,
   ...props
 }: React.ComponentProps<typeof InspectorDraftInput> & {
   readonly context?: string;
+  readonly leading?: React.ReactNode;
   readonly unit?: string;
 }) {
   return (
     <InputGroup>
-      {context === undefined ? null : (
+      {context === undefined && leading === undefined ? null : (
         <InputGroupAddon align="inline-start">
-          <InputGroupText>{context}</InputGroupText>
+          <InputGroupText>{leading ?? context}</InputGroupText>
         </InputGroupAddon>
       )}
       <InspectorDraftInput control="group" {...props} onCommit={onCommit} />
@@ -482,7 +541,7 @@ function AlignmentToggleItem({
 }: {
   readonly icon: React.ReactNode;
   readonly label: string;
-  readonly value: "left" | "center" | "right";
+  readonly value: EditorTextStyle["alignment"];
 }) {
   return (
     <Tooltip disableHoverablePopup>
@@ -502,7 +561,9 @@ function isTextRole(value: string): value is EditorTextStyle["role"] {
   return TEXT_ROLES.includes(value as EditorTextStyle["role"]);
 }
 
-function getTextRolePreset(role: EditorTextStyle["role"]) {
+function getTextRolePreset(
+  role: EditorTextStyle["role"],
+): Pick<EditorTextStyle, "fontSize" | "fontWeight"> {
   switch (role) {
     case "H1":
       return { fontSize: 64, fontWeight: 700 };
@@ -532,10 +593,20 @@ function getTextRoleLabel(
 }
 
 function getFontWeightLabel(
-  font_weight: number,
+  font_weight: TextFontWeight,
   labels: Record<string, string>,
 ): string {
-  return font_weight === 700 ? labels.fontWeightBold : labels.fontWeightRegular;
+  return {
+    100: labels.fontWeightThin,
+    200: labels.fontWeightExtraLight,
+    300: labels.fontWeightLight,
+    400: labels.fontWeightRegular,
+    500: labels.fontWeightMedium,
+    600: labels.fontWeightSemiBold,
+    700: labels.fontWeightBold,
+    800: labels.fontWeightExtraBold,
+    900: labels.fontWeightBlack,
+  }[font_weight];
 }
 
 function getTextInspectorLabels(t: ReturnType<typeof useTranslations>) {
@@ -546,12 +617,23 @@ function getTextInspectorLabels(t: ReturnType<typeof useTranslations>) {
       "alignmentCenter",
       "alignmentLeft",
       "alignmentRight",
+      "alignmentJustify",
       "color",
       "content",
       "fontSize",
+      "fontFamily",
       "fontWeight",
+      "lineHeight",
+      "letterSpacing",
       "fontWeightBold",
       "fontWeightRegular",
+      "fontWeightThin",
+      "fontWeightExtraLight",
+      "fontWeightLight",
+      "fontWeightMedium",
+      "fontWeightSemiBold",
+      "fontWeightExtraBold",
+      "fontWeightBlack",
       "role",
       "textRoleH1",
       "textRoleH2",

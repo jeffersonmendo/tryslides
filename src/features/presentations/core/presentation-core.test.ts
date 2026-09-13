@@ -38,11 +38,15 @@ import {
   createPresentation,
   createPresentationDeletionIntent,
   deserializePresentationState,
+  getPresentationFontStack,
   isHistoryEntryApplicableToSlide,
   PRESENTATION_CANVAS,
+  PRESENTATION_FONT_CATALOG,
   redo,
   redoPresentation,
   serializePresentationState,
+  TEXT_FONT_FAMILIES,
+  TEXT_FONT_WEIGHTS,
   TRANSITION_CAPABILITIES,
   undo,
   undoPresentation,
@@ -2679,9 +2683,11 @@ test("configures documented text, image, and shape visual styles", () => {
   assert.equal(text.success, true);
   assert.deepEqual(text.state.slides[0].elements[0].style, {
     role: "Paragraph",
-    font: "Arial",
+    fontFamily: "Geist",
     fontSize: 16,
     fontWeight: 400,
+    lineHeight: 1.2,
+    letterSpacing: 0,
     color: "#000000",
     alignment: "left",
   });
@@ -2691,9 +2697,11 @@ test("configures documented text, image, and shape visual styles", () => {
     patch: {
       style: {
         role: "H1",
-        font: "Inter",
+        fontFamily: "Playfair Display",
         fontSize: 64,
         fontWeight: 700,
+        lineHeight: 1.5,
+        letterSpacing: 2,
         color: "#FF0000",
         gradient: "linear-gradient(red, blue)",
         alignment: "center",
@@ -2736,9 +2744,11 @@ test("configures documented text, image, and shape visual styles", () => {
     [
       {
         role: "H1",
-        font: "Inter",
+        fontFamily: "Playfair Display",
         fontSize: 64,
         fontWeight: 700,
+        lineHeight: 1.5,
+        letterSpacing: 2,
         color: "#FF0000",
         gradient: "linear-gradient(red, blue)",
         alignment: "center",
@@ -2753,6 +2763,212 @@ test("configures documented text, image, and shape visual styles", () => {
   const restored = deserializePresentationState(serialized.serializedState);
   assert.equal(restored.success, true);
   assert.deepEqual(restored.state, shape.state);
+});
+
+test("accepts only the standard CSS numeric font-weight domain", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "text_1",
+      type: "text",
+      content: "Text",
+      position: { x: 0, y: 0 },
+      size: { width: 400, height: 80 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  for (const font_weight of TEXT_FONT_WEIGHTS) {
+    const edited = edit_element(created.state, {
+      slideId: "slide_1",
+      elementId: "text_1",
+      patch: { style: { fontWeight: font_weight } },
+    });
+    assert.equal(edited.success, true);
+  }
+  const invalid = edit_element(created.state, {
+    slideId: "slide_1",
+    elementId: "text_1",
+    patch: { style: { fontWeight: 350 as never } },
+  });
+  assert.equal(invalid.success, false);
+  assert.equal(invalid.error.code, "VALIDATION_ERROR");
+});
+
+test("accepts only supported text font families and preserves them through serialization", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "text_1",
+      type: "text",
+      content: "Text",
+      position: { x: 0, y: 0 },
+      size: { width: 400, height: 80 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  for (const font_family of TEXT_FONT_FAMILIES) {
+    const edited = edit_element(created.state, {
+      slideId: "slide_1",
+      elementId: "text_1",
+      patch: { style: { fontFamily: font_family } },
+    });
+    assert.equal(edited.success, true);
+    if (!edited.success) return;
+    const serialized = serializePresentationState(edited.state);
+    assert.equal(serialized.success, true);
+    if (!serialized.success) return;
+    const restored = deserializePresentationState(serialized.serializedState);
+    assert.equal(restored.success, true);
+    if (!restored.success) return;
+    const element = restored.state.slides[0]?.elements[0];
+    assert.equal(element?.type, "text");
+    if (element?.type !== "text") return;
+    assert.equal(element.style.fontFamily, font_family);
+  }
+
+  const invalid = edit_element(created.state, {
+    slideId: "slide_1",
+    elementId: "text_1",
+    patch: { style: { fontFamily: "Papyrus" as never } },
+  });
+  assert.equal(invalid.success, false);
+  assert.equal(invalid.error.code, "VALIDATION_ERROR");
+
+  for (const font_family of ["Arial", "-apple-system"]) {
+    const retired = edit_element(created.state, {
+      slideId: "slide_1",
+      elementId: "text_1",
+      patch: { style: { fontFamily: font_family as never } },
+    });
+    assert.equal(retired.success, false);
+    assert.equal(retired.error.code, "VALIDATION_ERROR");
+  }
+});
+
+test("accepts only supported text alignments", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "text_1",
+      type: "text",
+      content: "Text",
+      position: { x: 0, y: 0 },
+      size: { width: 400, height: 80 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const justified = edit_element(created.state, {
+    slideId: "slide_1",
+    elementId: "text_1",
+    patch: { style: { alignment: "justify" } },
+  });
+  assert.equal(justified.success, true);
+  if (!justified.success) return;
+  const justified_element = justified.state.slides[0]?.elements[0];
+  assert.equal(justified_element?.type, "text");
+  if (justified_element?.type !== "text") return;
+  assert.equal(justified_element.style.alignment, "justify");
+
+  const invalid = edit_element(created.state, {
+    slideId: "slide_1",
+    elementId: "text_1",
+    patch: { style: { alignment: "distributed" as never } },
+  });
+  assert.equal(invalid.success, false);
+  assert.equal(invalid.error.code, "VALIDATION_ERROR");
+});
+
+test("migrates legacy text typography and retired font families to Geist", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "text_1",
+      type: "text",
+      content: "Text",
+      position: { x: 0, y: 0 },
+      size: { width: 400, height: 80 },
+      rotation: 0,
+      opacity: 1,
+      style: { fontFamily: "Inter" },
+    },
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const serialized = serializePresentationState(created.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+
+  for (const retired_font of ["Arial", "-apple-system"] as const) {
+    const legacy: string = serialized.serializedState.replaceAll(
+      '"fontFamily":"Inter"',
+      `"font":"${retired_font}"`,
+    );
+    const restored = deserializePresentationState<never>(legacy);
+    assert.equal(restored.success, true);
+    if (!restored.success) return;
+    const element = restored.state.slides[0]?.elements[0];
+    assert.equal(element?.type, "text");
+    if (element?.type !== "text") return;
+    assert.equal(element.style.fontFamily, "Geist");
+    const historic_element =
+      restored.state.undoStack.at(-1)?.after.slides[0]?.elements[0];
+    assert.equal(historic_element?.type, "text");
+    if (historic_element?.type !== "text") return;
+    assert.equal(historic_element.style.fontFamily, "Geist");
+    const scoped_historic_element =
+      restored.state.slideHistories.slide_1?.undoStack.at(-1)?.after.slides[0]
+        ?.elements[0];
+    assert.equal(scoped_historic_element?.type, "text");
+    if (scoped_historic_element?.type !== "text") return;
+    assert.equal(scoped_historic_element.style.fontFamily, "Geist");
+    const restored_snapshot = serializePresentationState(restored.state);
+    assert.equal(restored_snapshot.success, true);
+    if (!restored_snapshot.success) return;
+    assert.doesNotMatch(
+      restored_snapshot.serializedState,
+      /Arial|-apple-system/,
+    );
+  }
+});
+
+test("exposes local portable font metadata and CSS stacks from one catalog", () => {
+  assert.deepEqual(TEXT_FONT_FAMILIES, [
+    "Geist",
+    "Geist Mono",
+    "Geist Pixel",
+    "Inter",
+    "Montserrat",
+    "Playfair Display",
+    "Lora",
+  ]);
+  assert.equal(getPresentationFontStack("Geist"), '"Geist", sans-serif');
+  assert.equal(
+    getPresentationFontStack("Playfair Display"),
+    '"Playfair Display", serif',
+  );
+
+  for (const font of PRESENTATION_FONT_CATALOG) {
+    assert.match(font.license.noticePath, /^\/fonts\//);
+    assert.match(font.license.sourceUrl, /^https:\/\//);
+    assert.ok(font.assets.length > 0);
+    for (const asset of font.assets) {
+      assert.match(asset.path, /^\/fonts\//);
+      assert.match(asset.weight, /^\d+( \d+)?$/);
+      assert.equal(asset.style, "normal");
+    }
+  }
 });
 
 test("preserves additional shape identities through Core creation and serialization", () => {
@@ -2938,4 +3154,12 @@ test("rejects serialized visual state that violates background or style contract
   );
   assert.equal(style_result.success, false);
   assert.equal(style_result.error.code, "INVALID_SERIALIZED_STATE");
+
+  const invalid_font_weight = JSON.parse(serialized.serializedState);
+  invalid_font_weight.slides[0].elements[0].style.fontWeight = 350;
+  const font_weight_result = deserializePresentationState(
+    JSON.stringify(invalid_font_weight),
+  );
+  assert.equal(font_weight_result.success, false);
+  assert.equal(font_weight_result.error.code, "INVALID_SERIALIZED_STATE");
 });

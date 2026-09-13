@@ -6,6 +6,7 @@ export type GroupInspectorCapabilities = {
   readonly shape: boolean;
   readonly shapeBorder: boolean;
   readonly shapeRadius: boolean;
+  readonly shapeStroke: boolean;
 };
 
 const LINE_SHAPE_TYPES = new Set([
@@ -48,5 +49,10 @@ export function getGroupInspectorCapabilities(
     shapeRadius:
       shape &&
       shape_elements.every((element) => element.shapeType === "rectangle"),
+    shapeStroke:
+      shape &&
+      shape_elements.every((element) =>
+        LINE_SHAPE_TYPES.has(element.shapeType),
+      ),
   };
 }

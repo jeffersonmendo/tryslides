@@ -141,8 +141,11 @@ test("renders translated labels for selected raw values without changing stored 
     text_inspector_source,
     /<SelectItem key=\{role\} value=\{role\}>/,
   );
-  assert.match(text_inspector_source, /<SelectItem value="400">/);
-  assert.match(text_inspector_source, /<SelectItem value="700">/);
+  assert.match(text_inspector_source, /TEXT_FONT_WEIGHTS\.map/);
+  assert.match(
+    text_inspector_source,
+    /<SelectItem key=\{font_weight\} value=\{String\(font_weight\)\}>/,
+  );
 });
 
 test("uses pixel unit controls for dimensional style values and correct layer icons", () => {

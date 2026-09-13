@@ -14,6 +14,11 @@ import type {
   TransitionCapability,
   TransitionConfigurationInput,
 } from "./types";
+import {
+  TEXT_ALIGNMENTS,
+  TEXT_FONT_FAMILIES,
+  TEXT_FONT_WEIGHTS,
+} from "./types";
 
 const SHAPE_TYPES = new Set([
   "rectangle",
@@ -214,6 +219,30 @@ export function isValidPatch(
     (patch.style === undefined || isValidStylePatch(element, patch.style))
   );
 }
+export function isTextFontFamily(
+  value: unknown,
+): value is (typeof TEXT_FONT_FAMILIES)[number] {
+  return (
+    typeof value === "string" &&
+    TEXT_FONT_FAMILIES.includes(value as (typeof TEXT_FONT_FAMILIES)[number])
+  );
+}
+export function isTextFontWeight(
+  value: unknown,
+): value is (typeof TEXT_FONT_WEIGHTS)[number] {
+  return (
+    typeof value === "number" &&
+    TEXT_FONT_WEIGHTS.includes(value as (typeof TEXT_FONT_WEIGHTS)[number])
+  );
+}
+export function isTextAlignment(
+  value: unknown,
+): value is (typeof TEXT_ALIGNMENTS)[number] {
+  return (
+    typeof value === "string" &&
+    TEXT_ALIGNMENTS.includes(value as (typeof TEXT_ALIGNMENTS)[number])
+  );
+}
 export function isValidPosition(value: unknown): value is ElementPosition {
   return (
     isRecord(value) &&
@@ -327,9 +356,11 @@ function isValidTextStylePatch(value: unknown): boolean {
   return (
     isValidPatchRecord(value, [
       "role",
-      "font",
+      "fontFamily",
       "fontSize",
       "fontWeight",
+      "lineHeight",
+      "letterSpacing",
       "color",
       "gradient",
       "alignment",
@@ -339,12 +370,15 @@ function isValidTextStylePatch(value: unknown): boolean {
       value.role === "H2" ||
       value.role === "H3" ||
       value.role === "Paragraph") &&
-    (value.font === undefined || isNonBlankString(value.font)) &&
+    (value.fontFamily === undefined || isTextFontFamily(value.fontFamily)) &&
     (value.fontSize === undefined || isPositiveNumber(value.fontSize)) &&
-    (value.fontWeight === undefined || isPositiveNumber(value.fontWeight)) &&
+    (value.fontWeight === undefined || isTextFontWeight(value.fontWeight)) &&
+    (value.lineHeight === undefined || isPositiveNumber(value.lineHeight)) &&
+    (value.letterSpacing === undefined ||
+      isFiniteNumber(value.letterSpacing)) &&
     (value.color === undefined || isNonBlankString(value.color)) &&
     (value.gradient === undefined || isNonBlankString(value.gradient)) &&
-    (value.alignment === undefined || isNonBlankString(value.alignment))
+    (value.alignment === undefined || isTextAlignment(value.alignment))
   );
 }
 function isValidImageStylePatch(value: unknown): boolean {

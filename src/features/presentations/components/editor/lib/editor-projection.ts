@@ -61,8 +61,11 @@ function toEditorTextElement(element: TextElement): EditorTextElement {
     rotation: element.rotation,
     style: {
       role: element.style.role,
+      fontFamily: element.style.fontFamily,
       fontSize: element.style.fontSize,
       fontWeight: element.style.fontWeight,
+      lineHeight: element.style.lineHeight,
+      letterSpacing: element.style.letterSpacing,
       color: element.style.color,
       alignment: element.style.alignment,
     },
