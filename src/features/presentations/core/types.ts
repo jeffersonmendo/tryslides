@@ -473,6 +473,11 @@ export type ConfigureAnimationInput = CommandMetadata & {
   type: string;
   configuration?: AnimationConfigurationInput;
 };
+export type RemoveAnimationInput = CommandMetadata & {
+  slideId: string;
+  elementId: string;
+  category: AnimationCategory;
+};
 export type ConfigureTransitionInput = CommandMetadata & {
   slideId: string;
   type: string;

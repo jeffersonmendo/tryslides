@@ -154,6 +154,7 @@ const text: EditorTextElement = {
     color: "#000000",
     alignment: "left",
   },
+  animations: [],
 };
 const image: Extract<EditorElement, { readonly type: "image" }> = {
   id: "image",
@@ -196,6 +197,18 @@ function sectionContaining(container: HTMLElement, text: string): HTMLElement {
   if (section === undefined)
     throw new Error(`Missing section containing ${text}`);
   return section;
+}
+
+function assertDecorativeSectionIcons(container: HTMLElement) {
+  for (const legend of container.querySelectorAll("fieldset > legend")) {
+    const composition = legend.querySelector("span.flex.items-center.gap-2");
+    const icon = composition?.querySelector("svg[aria-hidden='true']");
+
+    assert.ok(composition, "Each section legend has inline flex composition");
+    assert.ok(icon, "Each section legend has a decorative icon");
+    assert.equal(icon.classList.contains("size-3!"), true);
+    assert.equal(icon.getAttribute("stroke-width"), "2");
+  }
 }
 
 const noop = () => undefined;
@@ -244,6 +257,27 @@ const group_props = {
 };
 
 test.afterEach(() => cleanup());
+
+test("assigns the intended icon to each static inspector section", () => {
+  const expected_icons = {
+    "text-inspector.tsx": ["IconFileText", "IconTransform", "IconPalette"],
+    "element-inspector.tsx": ["IconBox", "IconTransform", "IconPalette"],
+    "group-inspector.tsx": ["IconBox", "IconTransform", "IconPalette"],
+  } as const;
+
+  for (const [file, icons] of Object.entries(expected_icons)) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+
+    for (const icon of icons) {
+      assert.match(
+        source,
+        new RegExp(
+          `<${icon} aria-hidden className="size-3!" stroke=\\{2\\} />`,
+        ),
+      );
+    }
+  }
+});
 
 test("keeps inspector copy local instead of accepting propagated labels", () => {
   for (const file of [
@@ -330,6 +364,7 @@ test("places text content, transform, and appearance in semantic order", () => {
     "Transform",
     "Appearance",
   ]);
+  assertDecorativeSectionIcons(container);
   assert.match(
     sectionContaining(container, "Content").textContent ?? "",
     /Role/,
@@ -413,6 +448,7 @@ test("keeps image and shape type content separate from appearance and preserves 
     "Transform",
     "Appearance",
   ]);
+  assertDecorativeSectionIcons(image_result.container);
   assert.match(
     sectionContaining(image_result.container, "Transform").textContent ?? "",
     /Layout[\s\S]*Layers/,
@@ -431,6 +467,7 @@ test("keeps image and shape type content separate from appearance and preserves 
     "Transform",
     "Appearance",
   ]);
+  assertDecorativeSectionIcons(rectangle_result.container);
   assert.match(
     sectionContaining(rectangle_result.container, "Content").textContent ?? "",
     /Shape type/,
@@ -464,6 +501,7 @@ test("keeps group transform controls together while capability intersections con
     "Transform",
     "Appearance",
   ]);
+  assertDecorativeSectionIcons(heterogeneous.container);
   assert.match(
     sectionContaining(heterogeneous.container, "Appearance").textContent ?? "",
     /Opacity/,
@@ -493,6 +531,7 @@ test("keeps group transform controls together while capability intersections con
     "Transform",
     "Appearance",
   ]);
+  assertDecorativeSectionIcons(text_group.container);
   assert.match(
     sectionContaining(text_group.container, "Content").textContent ?? "",
     /Role/,

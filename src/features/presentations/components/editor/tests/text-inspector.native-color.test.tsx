@@ -109,6 +109,7 @@ function NativeColorHarness({ commands }: { readonly commands: string[] }) {
       color: preview_color,
       alignment: "left",
     },
+    animations: [],
   };
   const schedule_color = (color: string) => {
     const key = "element:slide_1:text_1";
@@ -199,4 +200,15 @@ test("text color blur immediately persists a distinct color after debounce", asy
   fireEvent.blur(input);
 
   assert.deepEqual(commands, ["editElement:#123456", "editElement:#654321"]);
+});
+
+test("text content remains vertically scrollable within a bounded editor", () => {
+  render(<NativeColorHarness commands={[]} />);
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    "#text-content-text_1",
+  );
+
+  assert.ok(textarea);
+  assert.ok(textarea.classList.contains("max-h-48"));
+  assert.ok(textarea.classList.contains("overflow-y-auto"));
 });

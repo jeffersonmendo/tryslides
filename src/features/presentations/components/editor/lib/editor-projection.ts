@@ -1,8 +1,13 @@
 import type {
+  AnimationConfiguration,
   Slide,
   TextElement,
 } from "@/features/presentations/core/presentation-core";
-import type { EditorSlide, EditorTextElement } from "./editor-model";
+import type {
+  EditorAnimation,
+  EditorSlide,
+  EditorTextElement,
+} from "./editor-model";
 
 export function toEditorSlide(slide: Slide, index: number): EditorSlide {
   return {
@@ -27,10 +32,7 @@ export function toEditorSlide(slide: Slide, index: number): EditorSlide {
           opacity: element.opacity,
           rotation: element.rotation,
           style: element.style,
-          animations: element.animations.map((animation) => ({
-            type: animation.type,
-            duration: animation.duration,
-          })),
+          animations: element.animations.map(toEditorAnimation),
         };
       return {
         id: element.id,
@@ -41,10 +43,7 @@ export function toEditorSlide(slide: Slide, index: number): EditorSlide {
         opacity: element.opacity,
         rotation: element.rotation,
         style: element.style,
-        animations: element.animations.map((animation) => ({
-          type: animation.type,
-          duration: animation.duration,
-        })),
+        animations: element.animations.map(toEditorAnimation),
       };
     }),
   };
@@ -69,5 +68,21 @@ function toEditorTextElement(element: TextElement): EditorTextElement {
       color: element.style.color,
       alignment: element.style.alignment,
     },
+    animations: element.animations.map(toEditorAnimation),
+  };
+}
+
+export function toEditorAnimation(
+  animation: AnimationConfiguration,
+): EditorAnimation {
+  return {
+    type: animation.type,
+    duration: animation.duration,
+    delay: animation.delay,
+    easing: animation.easing,
+    ...(animation.repeat === undefined ? {} : { repeat: animation.repeat }),
+    ...(animation.interval === undefined
+      ? {}
+      : { interval: animation.interval }),
   };
 }

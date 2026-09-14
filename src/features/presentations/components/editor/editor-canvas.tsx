@@ -2,8 +2,13 @@
 
 import { useTranslations } from "next-intl";
 import { PRESENTATION_CANVAS } from "@/features/presentations/core/types";
+import { EditorPreviewLayer } from "./editor-preview-layer";
 import type { DragCommitResult } from "./lib/editor-drag";
-import type { EditorSlide } from "./lib/editor-model";
+import type {
+  EditorAnimationPlayback,
+  EditorSlide,
+  EditorTransitionPreview,
+} from "./lib/editor-model";
 import { SlideRenderer } from "./slide-renderer";
 
 type EditorCanvasProps = {
@@ -36,6 +41,10 @@ type EditorCanvasProps = {
   ) => Promise<DragCommitResult>;
   readonly onTextContentChange: (content: string) => void;
   readonly onTextContentCommit: (content: string) => void;
+  readonly animationPlayback: EditorAnimationPlayback | null;
+  readonly onAnimationEnd: (session_id: number, key: number) => void;
+  readonly transitionPreview: EditorTransitionPreview | null;
+  readonly onTransitionEnd: (key: number) => void;
 };
 
 export function EditorCanvas({
@@ -53,6 +62,10 @@ export function EditorCanvas({
   onRotateEnd,
   onTextContentChange,
   onTextContentCommit,
+  animationPlayback,
+  onAnimationEnd,
+  transitionPreview,
+  onTransitionEnd,
 }: EditorCanvasProps) {
   const t = useTranslations("Editor");
   return (
@@ -98,6 +111,14 @@ export function EditorCanvas({
         onRotateEnd={onRotateEnd}
         onTextContentChange={onTextContentChange}
         onTextContentCommit={onTextContentCommit}
+        animationPlayback={animationPlayback}
+        onAnimationEnd={onAnimationEnd}
+      />
+      <EditorPreviewLayer
+        canvas={canvas}
+        imageUrls={imageUrls}
+        transitionPreview={transitionPreview}
+        onTransitionEnd={onTransitionEnd}
       />
       <div
         aria-hidden="true"

@@ -11,8 +11,8 @@
     "format:check": "biome check",
     "lint": "biome lint",
     "typecheck": "tsc --noEmit",
-    "test": "bun test --path-ignore-patterns=\"src/components/ui/color.test.tsx\" --path-ignore-patterns=\"src/features/presentations/components/editor/tests/inspector-section-order.test.tsx\" --path-ignore-patterns=\"src/features/presentations/components/editor/tests/text-inspector.native-color.test.tsx\"",
-    "test:dom": "bun test --path-ignore-patterns=\"\" --preload ./test-setup.ts src/components/ui/color.test.tsx src/features/presentations/components/editor/tests/inspector-section-order.test.tsx src/features/presentations/components/editor/tests/text-inspector.native-color.test.tsx",
+    "test": "bun test --path-ignore-patterns=\"src/components/ui/color.test.tsx\" --path-ignore-patterns=\"src/features/presentations/components/editor/tests/inspector-section-order.test.tsx\" --path-ignore-patterns=\"src/features/presentations/components/editor/tests/inspector-preview-restart.test.tsx\" --path-ignore-patterns=\"src/features/presentations/components/editor/tests/editor-element.typewriter.test.tsx\" --path-ignore-patterns=\"src/features/presentations/components/editor/tests/text-inspector.native-color.test.tsx\"",
+    "test:dom": "bun test --path-ignore-patterns=\"\" --preload ./test-setup.ts src/components/ui/color.test.tsx src/features/presentations/components/editor/tests/inspector-section-order.test.tsx src/features/presentations/components/editor/tests/inspector-preview-restart.test.tsx src/features/presentations/components/editor/tests/editor-element.typewriter.test.tsx src/features/presentations/components/editor/tests/text-inspector.native-color.test.tsx",
     "check": "bun run format:check && bun run typecheck && bun run test && bun run test:dom",
     "check:all": "bun run check && bun run build",
     "prepare": "husky"

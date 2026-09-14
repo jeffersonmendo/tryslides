@@ -10,6 +10,7 @@ import {
   IconAlignJustified,
   IconAlignLeft2,
   IconAlignRight2,
+  IconBox,
   IconLayoutAlignBottomFilled,
   IconLayoutAlignCenterFilled,
   IconLayoutAlignLeftFilled,
@@ -18,8 +19,10 @@ import {
   IconLayoutAlignTopFilled,
   IconLetterSpacing,
   IconLineHeight,
+  IconPalette,
   IconSpacingHorizontal,
   IconSpacingVertical,
+  IconTransform,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -185,8 +188,11 @@ export function GroupInspector({
     <FieldGroup>
       {capabilities.text || capabilities.shape ? (
         <FieldSet>
-          <FieldLegend className="text-muted-foreground">
-            {labels.content}
+          <FieldLegend className="text-muted-foreground/80">
+            <span className="flex items-center gap-2">
+              <IconBox aria-hidden className="size-3!" stroke={2} />
+              {labels.content}
+            </span>
           </FieldLegend>
           <FieldGroup className="gap-4">
             {capabilities.text ? (
@@ -207,8 +213,11 @@ export function GroupInspector({
         </FieldSet>
       ) : null}
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.transform}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconTransform aria-hidden className="size-3!" stroke={2} />
+            {labels.transform}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           <Field>
@@ -274,8 +283,11 @@ export function GroupInspector({
         </FieldGroup>
       </FieldSet>
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.appearance}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconPalette aria-hidden className="size-3!" stroke={2} />
+            {labels.appearance}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           {capabilities.text ? (

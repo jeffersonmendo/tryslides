@@ -764,7 +764,7 @@ function isUpdatedElement(
       hasOnlyChangedElementProperty(before_element, after_element, "assetId")
     );
   if (update === "animations")
-    return hasReplacedAnimation(before_element, after_element);
+    return hasReplacedOrRemovedAnimation(before_element, after_element);
   return (
     before_element.type === after_element.type &&
     JSON.stringify(before_element.animations) ===
@@ -1164,12 +1164,12 @@ function hasSameElementProperty(
   return JSON.stringify(before_content) === JSON.stringify(after_content);
 }
 
-function hasReplacedAnimation(
+function hasReplacedOrRemovedAnimation(
   before: PresentationElement,
   after: PresentationElement,
 ): boolean {
   if (!hasSameElementProperty(before, after, "animations")) return false;
-  return after.animations.some((animation) => {
+  const replaces_category = after.animations.some((animation) => {
     const category = getAnimationCapability(animation.type)?.category;
     return (
       category !== undefined &&
@@ -1182,6 +1182,21 @@ function hasReplacedAnimation(
           ),
           animation,
         ])
+    );
+  });
+  if (replaces_category) return true;
+  return before.animations.some((animation) => {
+    const category = getAnimationCapability(animation.type)?.category;
+    return (
+      category !== undefined &&
+      JSON.stringify(after.animations) ===
+        JSON.stringify(
+          before.animations.filter(
+            (current_animation) =>
+              getAnimationCapability(current_animation.type)?.category !==
+              category,
+          ),
+        )
     );
   });
 }

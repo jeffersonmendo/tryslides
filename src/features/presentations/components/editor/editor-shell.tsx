@@ -2,26 +2,38 @@
 
 import { IconDeviceDesktop } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
+import { useEffect, useRef, useState } from "react";
 import {
   Sidebar,
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import type {
+  AnimationCategory,
   ElementPatch,
   ShapeType,
   SlideBackground,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
+import { ANIMATION_CAPABILITIES } from "@/features/presentations/core/presentation-core";
 import { EditorHeader } from "./editor-header";
 import { EditorWorkspace } from "./editor-workspace";
 import type { DragCommitResult } from "./lib/editor-drag";
 import type {
+  EditorAnimation,
+  EditorAnimationPlayback,
+  EditorAnimationPreview,
   EditorSelection,
   EditorSlide,
   EditorTextElement,
   EditorTextStyle,
+  EditorTransitionPreview,
 } from "./lib/editor-model";
+import {
+  completeSlidePlayback,
+  createSlidePlayback,
+  pauseSlidePlayback,
+} from "./lib/slide-playback-planner";
 import { PropertiesSidebar } from "./properties-sidebar";
 import { SlideSidebar } from "./slide-sidebar";
 
@@ -135,6 +147,15 @@ type EditorShellProps = {
   ) => void;
   readonly onUndo: () => void;
   readonly onUndoPresentation: () => void;
+  readonly onConfigureAnimation: (
+    element_id: string,
+    type: EditorAnimation["type"],
+    configuration: Omit<EditorAnimation, "type">,
+  ) => void;
+  readonly onRemoveAnimation: (
+    element_id: string,
+    category: AnimationCategory,
+  ) => void;
 };
 
 export function EditorShell({
@@ -194,8 +215,125 @@ export function EditorShell({
   onTransitionCommit,
   onUndo,
   onUndoPresentation,
+  onConfigureAnimation,
+  onRemoveAnimation,
 }: EditorShellProps) {
   const t = useTranslations("Editor");
+  const [animation_playback, set_animation_playback] =
+    useState<EditorAnimationPlayback | null>(null);
+  const [transition_preview, set_transition_preview] =
+    useState<EditorTransitionPreview | null>(null);
+  const active_slide_index = slides.findIndex(
+    (slide) => slide.id === activeSlideId,
+  );
+  const next_slide =
+    active_slide_index === -1 ? null : (slides[active_slide_index + 1] ?? null);
+  const selection_key = JSON.stringify(selection);
+  const preview_key_ref = useRef(0);
+  const previous_selection_key_ref = useRef(selection_key);
+
+  useEffect(() => {
+    set_animation_playback((current) =>
+      current?.slideId === activeSlideId ? current : null,
+    );
+    set_transition_preview((current) =>
+      current?.sourceSlideId === activeSlideId ? current : null,
+    );
+  }, [activeSlideId]);
+
+  useEffect(() => {
+    if (previous_selection_key_ref.current === selection_key) return;
+    previous_selection_key_ref.current = selection_key;
+    set_animation_playback(null);
+  }, [selection_key]);
+
+  function nextPreviewKey(): number {
+    preview_key_ref.current += 1;
+    return preview_key_ref.current;
+  }
+
+  function previewAnimation(element_id: string, animation: EditorAnimation) {
+    startAnimationPlayback("inspector", [{ elementId: element_id, animation }]);
+  }
+
+  function previewSlideAnimations() {
+    if (activeSlide === null) return;
+    const session_id = nextPreviewKey();
+    set_animation_playback(
+      createSlidePlayback(
+        session_id,
+        activeSlide.id,
+        activeSlide.elements.flatMap((element) =>
+          element.animations.map((animation) => ({
+            elementId: element.id,
+            animation,
+            key: nextPreviewKey(),
+          })),
+        ),
+      ),
+    );
+  }
+
+  function toggleSlidePlayback() {
+    if (animation_playback?.origin === "slide") {
+      set_animation_playback(pauseSlidePlayback(animation_playback));
+      return;
+    }
+    previewSlideAnimations();
+  }
+
+  function startAnimationPlayback(
+    origin: EditorAnimationPlayback["origin"],
+    animations: readonly Omit<EditorAnimationPreview, "key">[],
+  ) {
+    if (animations.length === 0) return;
+    set_animation_playback({
+      origin,
+      key: nextPreviewKey(),
+      slideId: activeSlideId ?? "",
+      previews: animations.map((preview) => ({
+        ...preview,
+        key: nextPreviewKey(),
+      })),
+    });
+  }
+
+  function handleAnimationEnd(session_id: number, key: number) {
+    set_animation_playback((current) => {
+      if (current === null) return null;
+      if (current.origin === "slide")
+        return completeSlidePlayback(current, session_id, key);
+      if (current.key !== session_id) return current;
+      const preview = current.previews.find((item) => item.key === key);
+      if (preview === undefined) return current;
+      const previews = current.previews.filter((item) => item.key !== key);
+      return previews.length === 0 ? null : { ...current, previews };
+    });
+  }
+
+  function previewTransition(
+    transition_type: TransitionType,
+    transition_duration: number,
+  ) {
+    if (activeSlide === null || next_slide === null) return;
+    const key = nextPreviewKey();
+    const transition = {
+      transitionType: transition_type,
+      transitionDuration: transition_duration,
+    };
+    set_transition_preview({
+      nextSlide: next_slide,
+      sourceSlideId: activeSlide.id,
+      transition,
+      key,
+    });
+    if (transition_type === "none" || transition_duration === 0)
+      window.setTimeout(() => {
+        set_transition_preview((current) =>
+          current?.key === key ? null : current,
+        );
+      }, 0);
+  }
   return (
     <>
       <SidebarProvider className="hidden bg-muted h-dvh min-h-0 overflow-hidden overscroll-none md:flex">
@@ -230,6 +368,8 @@ export function EditorShell({
             onRedo={onRedo}
             onUploadImages={onUploadImages}
             onUndo={onUndo}
+            isSlidePlaybackActive={animation_playback?.origin === "slide"}
+            onPreviewSlideAnimations={toggleSlidePlayback}
           />
           <EditorWorkspace
             activeSlide={activeSlide}
@@ -250,6 +390,14 @@ export function EditorShell({
             onRotateEnd={onRotateEnd}
             onTextContentChange={onTextContentChange}
             onTextContentCommit={onTextContentCommit}
+            animationPlayback={animation_playback}
+            onAnimationEnd={handleAnimationEnd}
+            transitionPreview={transition_preview}
+            onTransitionEnd={(key) =>
+              set_transition_preview((current) =>
+                current?.key === key ? null : current,
+              )
+            }
           />
         </SidebarInset>
         <Sidebar
@@ -296,6 +444,33 @@ export function EditorShell({
             onBackgroundCommit={onBackgroundCommit}
             onTransitionChange={onTransitionChange}
             onTransitionCommit={onTransitionCommit}
+            onConfigureAnimation={onConfigureAnimation}
+            onRemoveAnimation={onRemoveAnimation}
+            onPreviewAnimation={previewAnimation}
+            activeAnimationPreview={
+              animation_playback?.origin === "inspector"
+                ? (animation_playback.previews[0] ?? null)
+                : null
+            }
+            onStopAnimationPlayback={(category) =>
+              set_animation_playback((current) =>
+                current?.origin !== "inspector" ||
+                (category !== undefined &&
+                  !current.previews.some(
+                    (preview) =>
+                      ANIMATION_CAPABILITIES.find(
+                        (capability) =>
+                          capability.id === preview.animation.type,
+                      )?.category === category,
+                  ))
+                  ? current
+                  : null,
+              )
+            }
+            onPreviewTransition={previewTransition}
+            isTransitionPreviewActive={transition_preview !== null}
+            onStopTransitionPreview={() => set_transition_preview(null)}
+            canPreviewTransition={next_slide !== null}
             onDuplicateSlide={on_duplicate_slide}
             onDeleteSlide={on_delete_slide}
           />

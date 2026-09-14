@@ -161,6 +161,52 @@ test("deletes an element through the editor application capability", async () =>
   assert.deepEqual(result.state.slides[0]?.elements, []);
 });
 
+test("removes an element animation through the editor application capability", async () => {
+  const repository = new MemoryPresentationRepository();
+  const commands = new PresentationCommands(
+    repository,
+    {
+      createPresentationId: () => "550e8400-e29b-41d4-a716-446655440000",
+      createPublicId: () => "Ab3xYz",
+      createSlideId: () => "slide_1",
+      createElementId: () => "element_1",
+      createLocalOperationId: () => "operation_1",
+    },
+    createClock(),
+  );
+  const capability = createEditorCapability(repository, commands);
+  const presentation = await commands.createWithInitialSlide({
+    title: "Animation",
+  });
+  assert.equal(presentation.success, true);
+  if (!presentation.success) return;
+  const created = capability.createShapeElement(presentation.state, {
+    slideId: "slide_1",
+    shapeType: "rectangle",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+  const configured = capability.configureAnimation(created.state, {
+    slideId: "slide_1",
+    elementId: "element_1",
+    type: "rotate",
+  });
+  assert.equal(configured.success, true);
+  if (!configured.success) return;
+
+  const removed = capability.removeAnimation(configured.state, {
+    slideId: "slide_1",
+    elementId: "element_1",
+    category: "continuous",
+  });
+  assert.equal(removed.success, true);
+  if (!removed.success) return;
+  assert.deepEqual(removed.state.slides[0]?.elements[0]?.animations, []);
+  assert.notEqual(removed.operation, null);
+  if (removed.operation === null) return;
+  assert.equal(removed.operation.type, "configure-animation");
+});
+
 test("aligns an element against the canvas edges and centers using its size", async () => {
   const repository = new MemoryPresentationRepository();
   const commands = new PresentationCommands(

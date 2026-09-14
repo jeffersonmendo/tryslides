@@ -1,13 +1,20 @@
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
+  AnimationCategory,
   ElementPatch,
   SlideBackground,
   TransitionType,
 } from "@/features/presentations/core/presentation-core";
+import { AnimationInspector } from "./animation-inspector";
 import { ElementInspector } from "./element-inspector";
 import { GroupInspector } from "./group-inspector";
 import type {
+  EditorAnimation,
+  EditorAnimationPreview,
   EditorElement,
   EditorSelection,
   EditorSlide,
@@ -88,6 +95,28 @@ type PropertiesSidebarProps = {
     type: TransitionType,
     duration?: number,
   ) => void;
+  readonly onConfigureAnimation: (
+    element_id: string,
+    type: EditorAnimation["type"],
+    configuration: Omit<EditorAnimation, "type">,
+  ) => void;
+  readonly onRemoveAnimation: (
+    element_id: string,
+    category: AnimationCategory,
+  ) => void;
+  readonly onPreviewAnimation: (
+    element_id: string,
+    animation: EditorAnimation,
+  ) => void;
+  readonly onPreviewTransition: (
+    type: TransitionType,
+    duration: number,
+  ) => void;
+  readonly onStopTransitionPreview: () => void;
+  readonly isTransitionPreviewActive: boolean;
+  readonly canPreviewTransition: boolean;
+  readonly activeAnimationPreview: EditorAnimationPreview | null;
+  readonly onStopAnimationPlayback: (category?: AnimationCategory) => void;
 };
 
 export function PropertiesSidebar({
@@ -126,133 +155,198 @@ export function PropertiesSidebar({
   onBackgroundCommit,
   onTransitionChange,
   onTransitionCommit,
+  onConfigureAnimation,
+  onRemoveAnimation,
+  onPreviewAnimation,
+  onPreviewTransition,
+  onStopTransitionPreview,
+  isTransitionPreviewActive,
+  canPreviewTransition,
+  activeAnimationPreview,
+  onStopAnimationPlayback,
 }: PropertiesSidebarProps) {
   const t = useTranslations("Editor");
+  const [active_tab, set_active_tab] = useState("properties");
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain p-4">
-      <h2 className="text-sm font-medium">{t("properties")}</h2>
+    <Tabs
+      value={active_tab}
+      onValueChange={(value) => {
+        if (value === null) return;
+        set_active_tab(value);
+        if (value !== "animations") onStopAnimationPlayback();
+      }}
+      className="h-full min-h-0 min-w-0 gap-0"
+    >
+      <div className="shrink-0 border-b p-4 pb-0">
+        <TabsList className="w-full" variant="line">
+          <TabsTrigger value="properties">{t("properties")}</TabsTrigger>
+          <TabsTrigger value="animations">{t("animations")}</TabsTrigger>
+        </TabsList>
+      </div>
+      <SidebarContent className="scroll-fade p-4">
+        <TabsContent value="properties" className="min-h-0">
+          {selection.kind === "none" && activeSlide !== null ? (
+            <SlideInspector
+              slide={activeSlide}
+              acceptedColor={
+                acceptedActiveSlide?.background.type === "solid"
+                  ? acceptedActiveSlide.background.color
+                  : activeSlide.background.type === "solid"
+                    ? activeSlide.background.color
+                    : "#FFFFFF"
+              }
+              onBackgroundChange={onBackgroundChange}
+              onBackgroundCommit={onBackgroundCommit}
+              onTransitionChange={onTransitionChange}
+              onTransitionCommit={onTransitionCommit}
+              onPreviewTransition={onPreviewTransition}
+              onStopTransitionPreview={onStopTransitionPreview}
+              isPreviewActive={isTransitionPreviewActive}
+              canPreviewTransition={canPreviewTransition}
+            />
+          ) : null}
+          {selection.kind === "text" &&
+          selectedText !== null &&
+          acceptedText !== null ? (
+            <TextInspector
+              key={selectedText.id}
+              acceptedColor={acceptedText.style.color}
+              text={selectedText}
+              elementCount={activeSlide?.elements.length ?? 0}
+              elementIndex={selectedElementIndex}
+              onContentChange={onTextContentChange}
+              onContentCommit={onTextContentCommit}
+              onAlign={(alignment) => on_align(selectedText.id, alignment)}
+              onPositionChange={(position) =>
+                onElementPatch(selectedText.id, { position })
+              }
+              onSizeChange={(size) => onElementPatch(selectedText.id, { size })}
+              onStyleChange={onTextStyleChange}
+              onStyleCommit={onTextStyleCommit}
+              onStyleApply={onTextStyleApply}
+              onPatch={(patch) => onElementPatch(selectedText.id, patch)}
+              onPatchCommit={(patch) =>
+                onElementPatchCommit(selectedText.id, patch)
+              }
+              onBringForward={() => onBringForward(selectedText.id)}
+              onBringToFront={() => on_bring_to_front(selectedText.id)}
+              onSendBackward={() => onSendBackward(selectedText.id)}
+              onSendToBack={() => on_send_to_back(selectedText.id)}
+            />
+          ) : null}
+          {selectedElement !== null &&
+          selectedElement.type !== "text" &&
+          activeSlide !== null ? (
+            <ElementInspector
+              element={selectedElement}
+              acceptedElement={acceptedElement}
+              elementCount={activeSlide.elements.length}
+              elementIndex={selectedElementIndex}
+              onPatch={(patch) => onElementPatch(selectedElement.id, patch)}
+              onPatchCommit={(patch) =>
+                onElementPatchCommit(selectedElement.id, patch)
+              }
+              onBringForward={() => onBringForward(selectedElement.id)}
+              onBringToFront={() => on_bring_to_front(selectedElement.id)}
+              onSendBackward={() => onSendBackward(selectedElement.id)}
+              onSendToBack={() => on_send_to_back(selectedElement.id)}
+              onAlign={(alignment) => on_align(selectedElement.id, alignment)}
+            />
+          ) : null}
+          {selection.kind === "multiple" && activeSlide !== null ? (
+            <GroupInspector
+              elements={activeSlide.elements.filter((element) =>
+                selection.elementIds.includes(element.id),
+              )}
+              referenceElementId={selection.referenceElementId}
+              onPatch={(patch) =>
+                onElementPatch(selection.primaryElementId, patch)
+              }
+              onPatchCommit={(patch) =>
+                onElementPatchCommit(selection.primaryElementId, patch)
+              }
+              onRotateChange={(delta) =>
+                onRotateElementsChange(selection.elementIds, delta)
+              }
+              onRotateCommit={(delta) =>
+                onRotateElementsCommit(selection.elementIds, delta)
+              }
+              onOpacityChange={(opacity) =>
+                onSetElementsOpacityChange(selection.elementIds, opacity)
+              }
+              onOpacityCommit={(opacity) =>
+                onSetElementsOpacityCommit(selection.elementIds, opacity)
+              }
+              onAlignToCanvas={(alignment) =>
+                onAlignElementsToCanvas(selection.elementIds, alignment)
+              }
+              onAlignToReference={(alignment) => {
+                if (selection.referenceElementId !== null)
+                  onAlignElementsToReference(
+                    selection.elementIds,
+                    selection.referenceElementId,
+                    alignment,
+                  );
+              }}
+              onDistribute={(axis, gap) =>
+                onDistributeElements(selection.elementIds, axis, gap)
+              }
+            />
+          ) : null}
+        </TabsContent>
+        <TabsContent value="animations" className="min-h-0">
+          <AnimationInspector
+            element={selectedElement}
+            onConfigureAnimation={onConfigureAnimation}
+            onRemoveAnimation={onRemoveAnimation}
+            onPreviewAnimation={onPreviewAnimation}
+            activePreview={activeAnimationPreview}
+            onStopPlayback={onStopAnimationPlayback}
+          />
+        </TabsContent>
+      </SidebarContent>
       {selection.kind === "none" && activeSlide !== null ? (
-        <SlideInspector
-          slide={activeSlide}
-          acceptedColor={
-            acceptedActiveSlide?.background.type === "solid"
-              ? acceptedActiveSlide.background.color
-              : activeSlide.background.type === "solid"
-                ? activeSlide.background.color
-                : "#FFFFFF"
-          }
-          onBackgroundChange={onBackgroundChange}
-          onBackgroundCommit={onBackgroundCommit}
-          onTransitionChange={onTransitionChange}
-          onTransitionCommit={onTransitionCommit}
-          onDuplicateSlide={on_duplicate_slide}
-          onDeleteSlide={on_delete_slide}
-        />
-      ) : null}
-      {selection.kind === "text" &&
-      selectedText !== null &&
-      acceptedText !== null ? (
-        <TextInspector
-          key={selectedText.id}
-          acceptedColor={acceptedText.style.color}
-          text={selectedText}
-          elementCount={activeSlide?.elements.length ?? 0}
-          elementIndex={selectedElementIndex}
-          onContentChange={onTextContentChange}
-          onContentCommit={onTextContentCommit}
-          onAlign={(alignment) => on_align(selectedText.id, alignment)}
-          onPositionChange={(position) =>
-            onElementPatch(selectedText.id, { position })
-          }
-          onSizeChange={(size) => onElementPatch(selectedText.id, { size })}
-          onStyleChange={onTextStyleChange}
-          onStyleCommit={onTextStyleCommit}
-          onStyleApply={onTextStyleApply}
-          onPatch={(patch) => onElementPatch(selectedText.id, patch)}
-          onPatchCommit={(patch) =>
-            onElementPatchCommit(selectedText.id, patch)
-          }
-          onBringForward={() => onBringForward(selectedText.id)}
-          onBringToFront={() => on_bring_to_front(selectedText.id)}
-          onSendBackward={() => onSendBackward(selectedText.id)}
-          onSendToBack={() => on_send_to_back(selectedText.id)}
-        />
-      ) : null}
-      {selectedElement !== null &&
-      selectedElement.type !== "text" &&
-      activeSlide !== null ? (
-        <ElementInspector
-          element={selectedElement}
-          acceptedElement={acceptedElement}
-          elementCount={activeSlide.elements.length}
-          elementIndex={selectedElementIndex}
-          onPatch={(patch) => onElementPatch(selectedElement.id, patch)}
-          onPatchCommit={(patch) =>
-            onElementPatchCommit(selectedElement.id, patch)
-          }
-          onBringForward={() => onBringForward(selectedElement.id)}
-          onBringToFront={() => on_bring_to_front(selectedElement.id)}
-          onSendBackward={() => onSendBackward(selectedElement.id)}
-          onSendToBack={() => on_send_to_back(selectedElement.id)}
-          onAlign={(alignment) => on_align(selectedElement.id, alignment)}
-        />
-      ) : null}
-      {selection.kind === "multiple" && activeSlide !== null ? (
-        <GroupInspector
-          elements={activeSlide.elements.filter((element) =>
-            selection.elementIds.includes(element.id),
-          )}
-          referenceElementId={selection.referenceElementId}
-          onPatch={(patch) => onElementPatch(selection.primaryElementId, patch)}
-          onPatchCommit={(patch) =>
-            onElementPatchCommit(selection.primaryElementId, patch)
-          }
-          onRotateChange={(delta) =>
-            onRotateElementsChange(selection.elementIds, delta)
-          }
-          onRotateCommit={(delta) =>
-            onRotateElementsCommit(selection.elementIds, delta)
-          }
-          onOpacityChange={(opacity) =>
-            onSetElementsOpacityChange(selection.elementIds, opacity)
-          }
-          onOpacityCommit={(opacity) =>
-            onSetElementsOpacityCommit(selection.elementIds, opacity)
-          }
-          onAlignToCanvas={(alignment) =>
-            onAlignElementsToCanvas(selection.elementIds, alignment)
-          }
-          onAlignToReference={(alignment) => {
-            if (selection.referenceElementId !== null)
-              onAlignElementsToReference(
-                selection.elementIds,
-                selection.referenceElementId,
-                alignment,
-              );
-          }}
-          onDistribute={(axis, gap) =>
-            onDistributeElements(selection.elementIds, axis, gap)
-          }
-        />
+        <SidebarFooter className="shrink-0 px-4 pb-4 pt-4">
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              variant="secondary"
+              onClick={on_duplicate_slide}
+            >
+              {t("duplicateSlide")}
+            </Button>
+            <Button
+              className="flex-1"
+              variant="destructive"
+              onClick={on_delete_slide}
+            >
+              {t("deleteSlide")}
+            </Button>
+          </div>
+        </SidebarFooter>
       ) : null}
       {selection.kind === "multiple" ? (
-        <Button
-          className="w-full"
-          variant="destructive"
-          onClick={() => onDeleteElements(selection.elementIds)}
-        >
-          {t("deleteElement")}
-        </Button>
+        <SidebarFooter className="shrink-0 px-4 pb-4 pt-4">
+          <Button
+            className="w-full"
+            variant="destructive"
+            onClick={() => onDeleteElements(selection.elementIds)}
+          >
+            {t("deleteElement")}
+          </Button>
+        </SidebarFooter>
       ) : null}
       {selectedElement !== null ? (
-        <Button
-          className="w-full"
-          variant="destructive"
-          onClick={() => onDeleteElement(selectedElement.id)}
-        >
-          {t("deleteElement")}
-        </Button>
+        <SidebarFooter className="shrink-0 px-4 pb-4 pt-4">
+          <Button
+            className="w-full"
+            variant="destructive"
+            onClick={() => onDeleteElement(selectedElement.id)}
+          >
+            {t("deleteElement")}
+          </Button>
+        </SidebarFooter>
       ) : null}
-    </div>
+    </Tabs>
   );
 }

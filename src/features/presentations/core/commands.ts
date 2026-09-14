@@ -5,6 +5,7 @@ import {
   findElementIndex,
   findSlideIndex,
   presentationRevisionChange,
+  removeAnimationForCategory,
   replaceAnimationForCategory,
   replaceSlide,
   reverseRevisionChange,
@@ -49,6 +50,7 @@ import type {
   PresentationElement,
   PresentationOperation,
   PresentationState,
+  RemoveAnimationInput,
   RenamePresentationInput,
   ReorderElementInput,
   ReorderSlideInput,
@@ -993,6 +995,53 @@ export function configureAnimation(
     ],
   );
 }
+/** Removes the element's declarative animation from one valid category. */
+export function removeAnimation(
+  state: PresentationState,
+  input: RemoveAnimationInput,
+): CommandResult {
+  const slide_index = findSlideIndex(state, input.slideId);
+  if (slide_index === -1) return failure(state, "SLIDE_NOT_FOUND");
+  const slide = state.slides[slide_index];
+  const element_index = findElementIndex(slide, input.elementId);
+  if (element_index === -1) return failure(state, "ELEMENT_NOT_FOUND");
+  if (!isAnimationCategory(input.category))
+    return failure(state, "VALIDATION_ERROR");
+  const element = slide.elements[element_index];
+  const animations = removeAnimationForCategory(
+    element.animations,
+    input.category,
+  );
+  if (animations.length === element.animations.length)
+    return failure(state, "VALIDATION_ERROR");
+  const updated_element = {
+    ...element,
+    revision: element.revision + 1,
+    animations,
+  };
+  return succeed(
+    state,
+    "configure-animation",
+    input,
+    {
+      ...state,
+      slides: replaceSlide(state.slides, slide_index, {
+        ...slide,
+        elements: slide.elements.map((current_element, index) =>
+          index === element_index ? updated_element : current_element,
+        ),
+      }),
+    },
+    [
+      {
+        entityType: "element",
+        entityId: element.id,
+        fromRevision: element.revision,
+        toRevision: updated_element.revision,
+      },
+    ],
+  );
+}
 /**
  * Replaces the slide's declarative transition after validating it against the
  * transition registry; the Core does not execute the visual effect.
@@ -1261,6 +1310,11 @@ function isValidAlignment(
   return ["left", "center", "right", "top", "middle", "bottom"].includes(
     value as string,
   );
+}
+function isAnimationCategory(
+  value: unknown,
+): value is import("./types").AnimationCategory {
+  return value === "entrance" || value === "continuous" || value === "exit";
 }
 function getAlignedPosition(
   element: PresentationElement,

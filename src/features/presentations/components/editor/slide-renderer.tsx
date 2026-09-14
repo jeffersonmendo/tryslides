@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { EditorElementView } from "./editor-element";
+import { EditorAnimationPreviewStyles } from "./editor-preview-layer";
 import type { DragCommitResult } from "./lib/editor-drag";
 import {
   commitDragPreview,
@@ -22,7 +23,7 @@ import {
   shouldDeselectCanvas,
   updatePreviewPositionsAfterDragCommit,
 } from "./lib/editor-drag";
-import type { EditorSlide } from "./lib/editor-model";
+import type { EditorAnimationPlayback, EditorSlide } from "./lib/editor-model";
 import { SlideVisualContent } from "./slide-visual-content";
 
 type SlideRendererProps = {
@@ -55,6 +56,8 @@ type SlideRendererProps = {
   ) => Promise<DragCommitResult>;
   readonly onTextContentChange: (content: string) => void;
   readonly onTextContentCommit: (content: string) => void;
+  readonly animationPlayback: EditorAnimationPlayback | null;
+  readonly onAnimationEnd: (session_id: number, key: number) => void;
 };
 
 export function SlideRenderer({
@@ -72,6 +75,8 @@ export function SlideRenderer({
   onRotateEnd,
   onTextContentChange,
   onTextContentCommit,
+  animationPlayback,
+  onAnimationEnd,
 }: SlideRendererProps) {
   const t = useTranslations("Editor");
   const [preview_positions, set_preview_positions] = useState<
@@ -350,6 +355,9 @@ export function SlideRenderer({
         )
       }
     >
+      <EditorAnimationPreviewStyles
+        previews={animationPlayback?.previews ?? []}
+      />
       <SlideVisualContent
         canvas={canvas}
         imageUrls={imageUrls}
@@ -373,8 +381,14 @@ export function SlideRenderer({
             isSelected={selectionIds.includes(element.id)}
             isReference={referenceElementId === element.id}
             canSetReference={selectionIds.length >= 2}
-            key={element.id}
             previewPosition={preview_positions[element.id]}
+            previewAnimations={(animationPlayback?.previews ?? []).filter(
+              (preview) => preview.elementId === element.id,
+            )}
+            animationSessionId={
+              animationPlayback?.sessionId ?? animationPlayback?.key ?? 0
+            }
+            onAnimationEnd={onAnimationEnd}
             getSlidePlaneRect={() =>
               slide_plane_ref.current?.getBoundingClientRect() ?? null
             }

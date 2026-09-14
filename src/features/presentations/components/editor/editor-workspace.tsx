@@ -1,7 +1,11 @@
 import { useTranslations } from "next-intl";
 import { EditorCanvas } from "./editor-canvas";
 import type { DragCommitResult } from "./lib/editor-drag";
-import type { EditorSlide } from "./lib/editor-model";
+import type {
+  EditorAnimationPlayback,
+  EditorSlide,
+  EditorTransitionPreview,
+} from "./lib/editor-model";
 
 type EditorWorkspaceProps = {
   readonly activeSlide: EditorSlide | null;
@@ -33,6 +37,10 @@ type EditorWorkspaceProps = {
   ) => Promise<DragCommitResult>;
   readonly onTextContentChange: (content: string) => void;
   readonly onTextContentCommit: (content: string) => void;
+  readonly animationPlayback: EditorAnimationPlayback | null;
+  readonly onAnimationEnd: (session_id: number, key: number) => void;
+  readonly transitionPreview: EditorTransitionPreview | null;
+  readonly onTransitionEnd: (key: number) => void;
 };
 
 export function EditorWorkspace({
@@ -50,6 +58,10 @@ export function EditorWorkspace({
   onRotateEnd,
   onTextContentChange,
   onTextContentCommit,
+  animationPlayback,
+  onAnimationEnd,
+  transitionPreview,
+  onTransitionEnd,
 }: EditorWorkspaceProps) {
   const t = useTranslations("Editor");
   return (
@@ -72,6 +84,10 @@ export function EditorWorkspace({
         onRotateEnd={onRotateEnd}
         onTextContentChange={onTextContentChange}
         onTextContentCommit={onTextContentCommit}
+        animationPlayback={animationPlayback}
+        onAnimationEnd={onAnimationEnd}
+        transitionPreview={transitionPreview}
+        onTransitionEnd={onTransitionEnd}
       />
     </section>
   );

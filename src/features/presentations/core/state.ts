@@ -89,6 +89,15 @@ export function replaceAnimationForCategory(
     configuration,
   ];
 }
+export function removeAnimationForCategory(
+  animations: readonly AnimationConfiguration[],
+  category: AnimationCategory,
+): AnimationConfiguration[] {
+  return animations.filter(
+    (animation) =>
+      getAnimationCapability(animation.type)?.category !== category,
+  );
+}
 export function presentationRevisionChange(
   state: PresentationState,
 ): EntityRevisionTransition {

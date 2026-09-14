@@ -15,6 +15,7 @@ import type {
 } from "@/features/presentations/application/editor/editor-capability";
 import type { EditorSession } from "@/features/presentations/application/editor/editor-session";
 import type {
+  AnimationConfigurationInput,
   ElementPatch,
   ElementSize,
   PresentationState,
@@ -1004,6 +1005,29 @@ export function EditorController({
             slideId: active_slide_id,
             type,
             ...(duration === undefined ? {} : { configuration: { duration } }),
+          }),
+        );
+      }}
+      onConfigureAnimation={(element_id, type, configuration) => {
+        if (active_slide_id === null) return;
+        scheduler_ref.current?.flushAll();
+        void runCommand((state) =>
+          capability.configureAnimation(state, {
+            slideId: active_slide_id,
+            elementId: element_id,
+            type,
+            configuration: configuration satisfies AnimationConfigurationInput,
+          }),
+        );
+      }}
+      onRemoveAnimation={(element_id, category) => {
+        if (active_slide_id === null) return;
+        scheduler_ref.current?.flushAll();
+        void runCommand((state) =>
+          capability.removeAnimation(state, {
+            slideId: active_slide_id,
+            elementId: element_id,
+            category,
           }),
         );
       }}

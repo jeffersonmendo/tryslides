@@ -9,6 +9,7 @@ import {
   IconChevronsDown,
   IconChevronsUp,
   IconChevronUp,
+  IconFileText,
   IconLayoutAlignBottomFilled,
   IconLayoutAlignCenterFilled,
   IconLayoutAlignLeftFilled,
@@ -17,6 +18,8 @@ import {
   IconLayoutAlignTopFilled,
   IconLetterSpacing,
   IconLineHeight,
+  IconPalette,
+  IconTransform,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import {
@@ -120,13 +123,17 @@ export function TextInspector({
   return (
     <FieldGroup>
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.content}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconFileText aria-hidden className="size-3!" stroke={2} />
+            {labels.content}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           <Field>
             <InspectorDraftTextarea
               aria-label={labels.content}
+              className="max-h-48 overflow-y-auto"
               id={`text-content-${text.id}`}
               value={text.content}
               onCommit={onContentCommit}
@@ -162,8 +169,11 @@ export function TextInspector({
         </FieldGroup>
       </FieldSet>
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.transform}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconTransform aria-hidden className="size-3!" stroke={2} />
+            {labels.transform}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           <PositionFields
@@ -274,8 +284,11 @@ export function TextInspector({
         </FieldGroup>
       </FieldSet>
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.appearance}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconPalette aria-hidden className="size-3!" stroke={2} />
+            {labels.appearance}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           <Field>

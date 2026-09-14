@@ -32,6 +32,7 @@ import {
   PRESENTATION_CANVAS,
   redoPresentation,
   redoSlide,
+  removeAnimation,
   reorderSlide,
   resizeElement,
   rotateElements,
@@ -258,6 +259,14 @@ export type EditorCapability = {
       readonly elementId: string;
       readonly type: string;
       readonly configuration?: AnimationConfigurationInput;
+    },
+  ): PreparedPresentationCommandResult;
+  removeAnimation(
+    state: PresentationState,
+    input: {
+      readonly slideId: string;
+      readonly elementId: string;
+      readonly category: "entrance" | "exit" | "continuous";
     },
   ): PreparedPresentationCommandResult;
   loadAsset(asset_id: string): ReturnType<typeof loadLocalAsset>;
@@ -524,6 +533,10 @@ export function createEditorCapability(
     configureAnimation: (state, input) =>
       commands.prepare(state, (current_state, command_input) =>
         configureAnimation(current_state, { ...input, ...command_input }),
+      ),
+    removeAnimation: (state, input) =>
+      commands.prepare(state, (current_state, command_input) =>
+        removeAnimation(current_state, { ...input, ...command_input }),
       ),
     loadAsset: (asset_id) =>
       loadLocalAsset(repository as unknown as LocalAssetRepository, asset_id),

@@ -2,29 +2,75 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-test("renders destructive deletion actions after the applicable inspector", () => {
+test("renders contextual actions in the fixed sidebar footer", () => {
   const sidebar_source = readFileSync(
     new URL("../properties-sidebar.tsx", import.meta.url),
     "utf8",
   );
 
+  assert.match(sidebar_source, /<SidebarFooter/);
+  assert.equal(
+    sidebar_source.match(/<SidebarFooter className="shrink-0 px-4 pb-4 pt-4">/g)
+      ?.length,
+    3,
+  );
+  assert.doesNotMatch(sidebar_source, /Separator/);
   assert.match(sidebar_source, /variant="destructive"/);
+  assert.match(sidebar_source, /onClick=\{on_duplicate_slide\}/);
+  assert.match(sidebar_source, /onClick=\{on_delete_slide\}/);
   assert.match(
     sidebar_source,
     /onClick=\{\(\) => onDeleteElement\(selectedElement\.id\)\}/,
-  );
-  assert.ok(
-    sidebar_source.lastIndexOf("onDeleteElement") >
-      sidebar_source.indexOf("<ElementInspector"),
   );
   assert.match(
     sidebar_source,
     /selection\.kind === "multiple" \? \([\s\S]*variant="destructive"[\s\S]*onClick=\{\(\) => onDeleteElements\(selection\.elementIds\)\}/,
   );
   assert.ok(
-    sidebar_source.indexOf("onDeleteElements(selection.elementIds)") >
-      sidebar_source.indexOf("<GroupInspector"),
+    sidebar_source.indexOf("<SidebarFooter") >
+      sidebar_source.indexOf("</SidebarContent>"),
   );
+});
+
+test("uses Base UI tabs to separate properties from animation controls", () => {
+  const sidebar_source = readFileSync(
+    new URL("../properties-sidebar.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(sidebar_source, /<Tabs\b[\s\S]*\bvalue=\{active_tab\}/);
+  assert.match(sidebar_source, /onValueChange=\{\(value\) =>/);
+  assert.match(sidebar_source, /<TabsList/);
+  assert.match(sidebar_source, /<TabsTrigger value="properties">/);
+  assert.match(sidebar_source, /<TabsTrigger value="animations">/);
+  assert.match(sidebar_source, /<AnimationInspector/);
+  assert.match(sidebar_source, /onPreviewTransition/);
+  assert.match(sidebar_source, /canPreviewTransition/);
+  assert.match(sidebar_source, /<SidebarContent className="scroll-fade p-4">/);
+  assert.doesNotMatch(sidebar_source, /overflow-y-auto/);
+  assert.doesNotMatch(sidebar_source, /overflow-x-hidden/);
+});
+
+test("uses Properties-section legends and inspector numeric fields in animation controls", () => {
+  const animation_inspector_source = readFileSync(
+    new URL("../animation-inspector.tsx", import.meta.url),
+    "utf8",
+  );
+  const element_inspector_source = readFileSync(
+    new URL("../element-inspector.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    animation_inspector_source,
+    /<FieldSet>\s*<FieldLegend className="text-muted-foreground\/80">/,
+  );
+  assert.match(
+    element_inspector_source,
+    /<FieldSet>\s*<FieldLegend className="text-muted-foreground\/80">\s*<span className="flex items-center gap-2">\s*<IconTransform aria-hidden className="size-3!" stroke=\{2\} \/>\s*\{labels\.transform\}/,
+  );
+  assert.match(animation_inspector_source, /<InspectorNumericField/);
+  assert.doesNotMatch(animation_inspector_source, /<Input\b/);
 });
 
 test("renders slide controls without a selected element and omits repeated summaries", () => {
@@ -40,24 +86,20 @@ test("renders slide controls without a selected element and omits repeated summa
   assert.match(sidebar_source, /<SlideInspector/);
   assert.match(sidebar_source, /onBackgroundChange=\{onBackgroundChange\}/);
   assert.match(sidebar_source, /onTransitionChange=\{onTransitionChange\}/);
-  assert.match(sidebar_source, /onDuplicateSlide=\{on_duplicate_slide\}/);
-  assert.match(sidebar_source, /onDeleteSlide=\{on_delete_slide\}/);
+  assert.doesNotMatch(sidebar_source, /onDuplicateSlide=/);
+  assert.doesNotMatch(sidebar_source, /onDeleteSlide=/);
   assert.doesNotMatch(sidebar_source, /labels\.noSelection/);
   assert.doesNotMatch(sidebar_source, /\{labels\.slideBackground\}: \{/);
   assert.doesNotMatch(sidebar_source, /\{labels\.slideTransition\}: \{/);
 });
 
-test("keeps duplicate and delete slide controls in the slide inspector", () => {
+test("keeps slide actions out of the scrolling slide inspector", () => {
   const inspector_source = readFileSync(
     new URL("../slide-inspector.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(inspector_source, /onClick=\{on_duplicate_slide\}/);
-  assert.match(inspector_source, /onClick=\{on_delete_slide\}/);
-  assert.match(
-    inspector_source,
-    /variant="secondary"[\s\S]*onClick=\{on_delete_slide\}/,
-  );
+  assert.doesNotMatch(inspector_source, /onDuplicateSlide/);
+  assert.doesNotMatch(inspector_source, /onDeleteSlide/);
 });
 
 test("configures the active slide through draft inputs and Select primitives", () => {
@@ -219,7 +261,7 @@ test("uses compact distribution controls and the sidebar deletion convention for
   );
   assert.match(
     group_inspector_source,
-    /<FieldLegend className="text-muted-foreground">\s*\{labels\.content\}/,
+    /<FieldLegend className="text-muted-foreground\/80">\s*<span className="flex items-center gap-2">\s*<IconBox aria-hidden className="size-3!" stroke=\{2\} \/>\s*\{labels\.content\}/,
   );
   assert.match(group_inspector_source, /\{labels\.transform\}/);
   assert.match(group_inspector_source, /\{labels\.appearance\}/);

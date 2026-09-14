@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconBox,
   IconChevronDown,
   IconChevronsDown,
   IconChevronsUp,
@@ -11,6 +12,8 @@ import {
   IconLayoutAlignMiddleFilled,
   IconLayoutAlignRightFilled,
   IconLayoutAlignTopFilled,
+  IconPalette,
+  IconTransform,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import {
@@ -87,8 +90,11 @@ export function ElementInspector({
     <FieldGroup>
       {element.type === "shape" ? (
         <FieldSet>
-          <FieldLegend className="text-muted-foreground">
-            {labels.content}
+          <FieldLegend className="text-muted-foreground/80">
+            <span className="flex items-center gap-2">
+              <IconBox aria-hidden className="size-3!" stroke={2} />
+              {labels.content}
+            </span>
           </FieldLegend>
           <FieldGroup className="gap-4">
             <ShapeTypeField
@@ -100,8 +106,11 @@ export function ElementInspector({
         </FieldSet>
       ) : null}
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.transform}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconTransform aria-hidden className="size-3!" stroke={2} />
+            {labels.transform}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           <InspectorGeometryPair
@@ -216,8 +225,11 @@ export function ElementInspector({
         </FieldGroup>
       </FieldSet>
       <FieldSet>
-        <FieldLegend className="text-muted-foreground">
-          {labels.appearance}
+        <FieldLegend className="text-muted-foreground/80">
+          <span className="flex items-center gap-2">
+            <IconPalette aria-hidden className="size-3!" stroke={2} />
+            {labels.appearance}
+          </span>
         </FieldLegend>
         <FieldGroup className="gap-4">
           <Field>

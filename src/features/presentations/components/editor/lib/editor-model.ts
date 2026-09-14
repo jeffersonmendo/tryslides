@@ -1,4 +1,5 @@
 import type {
+  AnimationConfiguration,
   ShapeType,
   SlideBackground,
   TextAlignment,
@@ -36,6 +37,7 @@ export type EditorTextElement = {
   readonly opacity: number;
   readonly rotation: number;
   readonly style: EditorTextStyle;
+  readonly animations: readonly EditorAnimation[];
 };
 
 export type EditorImageElement = {
@@ -68,8 +70,12 @@ export type EditorShapeElement = {
 };
 
 export type EditorAnimation = {
-  readonly type: string;
+  readonly type: AnimationConfiguration["type"];
   readonly duration: number;
+  readonly delay: number;
+  readonly easing: string;
+  readonly repeat?: number | "infinite";
+  readonly interval?: number;
 };
 export type EditorElement =
   | EditorTextElement
@@ -87,3 +93,31 @@ export type EditorSelection =
       readonly primaryElementId: string;
       readonly referenceElementId: string | null;
     };
+
+export type EditorAnimationPreview = {
+  readonly elementId: string;
+  readonly animation: EditorAnimation;
+  readonly key: number;
+};
+
+export type EditorAnimationPlayback = {
+  readonly key: number;
+  readonly slideId: string;
+  readonly previews: readonly EditorAnimationPreview[];
+  readonly origin: "inspector" | "slide";
+  readonly phase?: "entrance" | "continuous" | "exit";
+  readonly sessionId?: number;
+  readonly entrancePreviews?: readonly EditorAnimationPreview[];
+  readonly continuousPreviews?: readonly EditorAnimationPreview[];
+  readonly exitPreviews?: readonly EditorAnimationPreview[];
+};
+
+export type EditorTransitionPreview = {
+  readonly sourceSlideId: string;
+  readonly nextSlide: EditorSlide;
+  readonly transition: Pick<
+    EditorSlide,
+    "transitionDuration" | "transitionType"
+  >;
+  readonly key: number;
+};

@@ -3,8 +3,12 @@
 import { useDraggable } from "@dnd-kit/react";
 import { IconRotate2 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { getPresentationFontStack } from "@/features/presentations/core/presentation-core";
+import {
+  getAnimationPreviewStyle,
+  TypewriterTextPreview,
+} from "./editor-preview-layer";
 import {
   type CenterResizeHandle,
   cancelRotationPreview,
@@ -21,7 +25,7 @@ import {
   shouldShowRotationValue,
   stopEditingPointerDown,
 } from "./lib/editor-drag";
-import type { EditorElement } from "./lib/editor-model";
+import type { EditorAnimationPreview, EditorElement } from "./lib/editor-model";
 import { SlideElementContent } from "./slide-visual-content";
 
 type EditorElementProps = {
@@ -48,6 +52,9 @@ type EditorElementProps = {
   readonly onSetReference: (element_id: string) => void;
   readonly onTextContentChange: (content: string) => void;
   readonly onTextContentCommit: (content: string) => void;
+  readonly previewAnimations: readonly EditorAnimationPreview[];
+  readonly animationSessionId: number;
+  readonly onAnimationEnd: (session_id: number, key: number) => void;
 };
 
 export function EditorElementView({
@@ -65,6 +72,9 @@ export function EditorElementView({
   onSetReference,
   onTextContentChange,
   onTextContentCommit,
+  previewAnimations,
+  animationSessionId,
+  onAnimationEnd,
 }: EditorElementProps) {
   const t = useTranslations("Editor");
   const [is_editing_text, set_is_editing_text] = useState(false);
@@ -315,6 +325,9 @@ export function EditorElementView({
     rotation_offset,
     north_handle_size?.height ?? 0,
   );
+  const typewriter_preview = previewAnimations.find(
+    (preview) => preview.animation.type === "typewriter",
+  );
 
   function setElementContainer(node: HTMLDivElement | null) {
     ref(node);
@@ -381,23 +394,33 @@ export function EditorElementView({
               onSelect(element.id, event.metaKey || event.ctrlKey);
           }}
         >
-          <div
-            className="absolute inset-0"
-            style={{ opacity: element.opacity }}
+          <AnimationPreviewStack
+            playbackKey={animationSessionId}
+            previews={previewAnimations}
+            onAnimationEnd={onAnimationEnd}
           >
-            <ElementContent
-              element={element}
-              imageUrl={imageUrl}
-              canvas={canvas}
-              isEditing={is_editing_text}
-              onTextContentChange={onTextContentChange}
-              onTextContentCommit={onTextContentCommit}
-              onEditingChange={set_is_editing_text}
-            />
-          </div>
+            <div
+              className="absolute inset-0"
+              style={{ opacity: element.opacity }}
+            >
+              <ElementContent
+                element={element}
+                imageUrl={imageUrl}
+                canvas={canvas}
+                isEditing={is_editing_text}
+                onTextContentChange={onTextContentChange}
+                onTextContentCommit={onTextContentCommit}
+                onEditingChange={set_is_editing_text}
+                typewriterPreview={typewriter_preview}
+              />
+            </div>
+          </AnimationPreviewStack>
         </button>
         {isSelected ? (
-          <div className="pointer-events-none absolute inset-0">
+          <div
+            className="pointer-events-none absolute inset-0"
+            data-selection-chrome
+          >
             <span
               aria-hidden="true"
               className="absolute inset-0 border border-blue-500"
@@ -524,6 +547,39 @@ export function EditorElementView({
   );
 }
 
+function AnimationPreviewStack({
+  previews,
+  playbackKey,
+  onAnimationEnd,
+  children,
+}: {
+  readonly previews: readonly EditorAnimationPreview[];
+  readonly playbackKey: number;
+  readonly onAnimationEnd: (session_id: number, key: number) => void;
+  readonly children: ReactNode;
+}) {
+  return previews.reduceRight<ReactNode>(
+    (content, preview) => (
+      <div
+        className="absolute inset-0"
+        data-animation-preview
+        key={preview.key}
+        style={getAnimationPreviewStyle({
+          ...preview.animation,
+          key: preview.key,
+        })}
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget)
+            onAnimationEnd(playbackKey, preview.key);
+        }}
+      >
+        {content}
+      </div>
+    ),
+    children,
+  );
+}
+
 function ElementContent({
   canvas,
   element,
@@ -532,6 +588,7 @@ function ElementContent({
   onEditingChange,
   onTextContentChange,
   onTextContentCommit,
+  typewriterPreview,
 }: {
   readonly canvas: { readonly width: number };
   readonly element: EditorElement;
@@ -540,8 +597,19 @@ function ElementContent({
   readonly onEditingChange: (is_editing: boolean) => void;
   readonly onTextContentChange: (content: string) => void;
   readonly onTextContentCommit: (content: string) => void;
+  readonly typewriterPreview: EditorAnimationPreview | undefined;
 }) {
   if (element.type === "text") {
+    if (typewriterPreview !== undefined && !isEditing)
+      return (
+        <TypewriterTextPreview
+          className="block size-full overflow-visible whitespace-pre-wrap outline-none"
+          content={element.content}
+          delay={typewriterPreview.animation.delay}
+          duration={typewriterPreview.animation.duration}
+          style={getTextStyle(element, canvas)}
+        />
+      );
     return (
       <CanvasText
         element={element}
@@ -597,15 +665,7 @@ function CanvasText({
       role={isEditing ? "textbox" : undefined}
       suppressContentEditableWarning
       className="block size-full overflow-visible whitespace-pre-wrap outline-none"
-      style={{
-        color: element.style.color,
-        fontFamily: getPresentationFontStack(element.style.fontFamily),
-        fontSize: `${(element.style.fontSize / canvas.width) * 100}cqw`,
-        fontWeight: element.style.fontWeight,
-        letterSpacing: `${(element.style.letterSpacing / canvas.width) * 100}cqw`,
-        lineHeight: element.style.lineHeight,
-        textAlign: element.style.alignment,
-      }}
+      style={getTextStyle(element, canvas)}
       onDoubleClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -637,6 +697,21 @@ function CanvasText({
       {element.content}
     </span>
   );
+}
+
+function getTextStyle(
+  element: Extract<EditorElement, { readonly type: "text" }>,
+  canvas: { readonly width: number },
+) {
+  return {
+    color: element.style.color,
+    fontFamily: getPresentationFontStack(element.style.fontFamily),
+    fontSize: `${(element.style.fontSize / canvas.width) * 100}cqw`,
+    fontWeight: element.style.fontWeight,
+    letterSpacing: `${(element.style.letterSpacing / canvas.width) * 100}cqw`,
+    lineHeight: element.style.lineHeight,
+    textAlign: element.style.alignment,
+  };
 }
 
 type ResizeControl =

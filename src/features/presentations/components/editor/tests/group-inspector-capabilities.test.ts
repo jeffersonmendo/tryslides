@@ -21,6 +21,7 @@ const text: EditorElement = {
     color: "#000000",
     alignment: "left",
   },
+  animations: [],
 };
 const image: EditorElement = {
   id: "image",

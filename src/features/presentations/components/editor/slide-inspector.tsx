@@ -1,5 +1,6 @@
 "use client";
 
+import { IconPlayerPause, IconPlayerPlay } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -11,6 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type {
   SlideBackground,
   TransitionType,
@@ -36,8 +42,13 @@ type SlideInspectorProps = {
     type: TransitionType,
     duration?: number,
   ) => void;
-  readonly onDuplicateSlide: () => void;
-  readonly onDeleteSlide: () => void;
+  readonly onPreviewTransition: (
+    type: TransitionType,
+    duration: number,
+  ) => void;
+  readonly onStopTransitionPreview: () => void;
+  readonly isPreviewActive: boolean;
+  readonly canPreviewTransition: boolean;
 };
 
 export function SlideInspector({
@@ -47,8 +58,10 @@ export function SlideInspector({
   onBackgroundCommit,
   onTransitionChange,
   onTransitionCommit,
-  onDuplicateSlide: on_duplicate_slide,
-  onDeleteSlide: on_delete_slide,
+  onPreviewTransition,
+  onStopTransitionPreview,
+  isPreviewActive,
+  canPreviewTransition,
 }: SlideInspectorProps) {
   const t = useTranslations("Editor");
   const labels = getSlideInspectorLabels(t);
@@ -84,34 +97,55 @@ export function SlideInspector({
           />
         </Field>
       )}
-      <Field>
-        <FieldLabel htmlFor={`slide-transition-${slide.id}`}>
-          {labels.slideTransition}
-        </FieldLabel>
-        <Select
-          value={slide.transitionType}
-          onValueChange={(value) => {
-            if (value !== null && isTransitionType(value)) {
-              onTransitionCommit(value);
-            }
+      <div className="flex items-end gap-2">
+        <Field className="flex-1">
+          <FieldLabel htmlFor={`slide-transition-${slide.id}`}>
+            {labels.slideTransition}
+          </FieldLabel>
+          <Select
+            value={slide.transitionType}
+            onValueChange={(value) => {
+              if (value !== null && isTransitionType(value)) {
+                onTransitionCommit(value);
+                const capability = TRANSITION_CAPABILITIES.find(
+                  (item) => item.id === value,
+                );
+                if (capability !== undefined)
+                  onPreviewTransition(value, capability.defaults.duration);
+              }
+            }}
+          >
+            <SelectTrigger id={`slide-transition-${slide.id}`}>
+              <SelectValue>
+                {getTransitionLabel(slide.transitionType, labels)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {TRANSITION_CAPABILITIES.map((capability) => (
+                  <SelectItem key={capability.id} value={capability.id}>
+                    {getTransitionLabel(capability.id, labels)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <TransitionPreviewButton
+          canPreview={canPreviewTransition}
+          isActive={isPreviewActive}
+          pauseLabel={t("pauseTransition")}
+          playLabel={t("playTransition")}
+          onClick={() => {
+            if (isPreviewActive) onStopTransitionPreview();
+            else
+              onPreviewTransition(
+                slide.transitionType,
+                slide.transitionDuration,
+              );
           }}
-        >
-          <SelectTrigger id={`slide-transition-${slide.id}`}>
-            <SelectValue>
-              {getTransitionLabel(slide.transitionType, labels)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {TRANSITION_CAPABILITIES.map((capability) => (
-                <SelectItem key={capability.id} value={capability.id}>
-                  {getTransitionLabel(capability.id, labels)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
+        />
+      </div>
       {slide.transitionType === "none" ? null : (
         <Field>
           <FieldLabel htmlFor={`slide-transition-duration-${slide.id}`}>
@@ -125,29 +159,53 @@ export function SlideInspector({
             onCommit={(value) =>
               onTransitionCommit(slide.transitionType, value)
             }
-            onChange={(value) =>
-              onTransitionChange(slide.transitionType, value)
-            }
+            onChange={(value) => {
+              onTransitionChange(slide.transitionType, value);
+              onPreviewTransition(slide.transitionType, value);
+            }}
           />
         </Field>
       )}
-      <div className="flex gap-2">
-        <Button
-          className="flex-1"
-          variant="secondary"
-          onClick={on_duplicate_slide}
-        >
-          {labels.duplicateSlide}
-        </Button>
-        <Button
-          className="flex-1"
-          variant="destructive"
-          onClick={on_delete_slide}
-        >
-          {labels.deleteSlide}
-        </Button>
-      </div>
     </FieldGroup>
+  );
+}
+
+function TransitionPreviewButton({
+  canPreview,
+  isActive,
+  pauseLabel,
+  playLabel,
+  onClick,
+}: {
+  readonly canPreview: boolean;
+  readonly isActive: boolean;
+  readonly pauseLabel: string;
+  readonly playLabel: string;
+  readonly onClick: () => void;
+}) {
+  const label = isActive ? pauseLabel : playLabel;
+  return (
+    <Tooltip disableHoverablePopup>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-label={label}
+            disabled={!canPreview}
+            size="icon-sm"
+            type="button"
+            variant="secondary"
+            onClick={onClick}
+          >
+            {isActive ? (
+              <IconPlayerPause data-icon="inline-start" />
+            ) : (
+              <IconPlayerPlay data-icon="inline-start" />
+            )}
+          </Button>
+        }
+      />
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -207,8 +265,7 @@ function getSlideInspectorLabels(t: ReturnType<typeof useTranslations>) {
       "transitionNone",
       "transitionScale",
       "transitionSlide",
-      "deleteSlide",
-      "duplicateSlide",
+      "previewTransition",
     ].map((key) => [key, t(key as never)]),
   );
 }

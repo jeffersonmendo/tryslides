@@ -26,6 +26,7 @@ import {
   editSlide as coreEditSlide,
   moveElement as coreMoveElement,
   moveElements as coreMoveElements,
+  removeAnimation as coreRemoveAnimation,
   renamePresentation as coreRenamePresentation,
   reorderElement as coreReorderElement,
   reorderSlide as coreReorderSlide,
@@ -128,6 +129,7 @@ const rotate_elements = withUpdatedAt(coreRotateElements);
 const set_elements_opacity = withUpdatedAt(coreSetElementsOpacity);
 const replace_asset = withUpdatedAt(coreReplaceAsset);
 const configure_animation = withUpdatedAt(coreConfigureAnimation);
+const remove_animation = withUpdatedAt(coreRemoveAnimation);
 const configure_transition = withUpdatedAt(coreConfigureTransition);
 
 function createState() {
@@ -1758,6 +1760,77 @@ test("configures animation defaults and replaces the animation in its category",
   ]);
 });
 
+test("removes one animation category without affecting peers or creating empty history", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "title_1",
+      type: "text",
+      content: "Before",
+      position: { x: 0, y: 0 },
+      size: { width: 400, height: 80 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(created.success, true);
+  const entrance = configure_animation(created.state, {
+    slideId: "slide_1",
+    elementId: "title_1",
+    type: "fade-in",
+  });
+  assert.equal(entrance.success, true);
+  const configured = configure_animation(entrance.state, {
+    slideId: "slide_1",
+    elementId: "title_1",
+    type: "pulse",
+  });
+  assert.equal(configured.success, true);
+
+  const removed = remove_animation(configured.state, {
+    slideId: "slide_1",
+    elementId: "title_1",
+    category: "entrance",
+  });
+  assert.equal(removed.success, true);
+  if (!removed.success) return;
+  assert.equal(removed.operation.type, "configure-animation");
+  assert.deepEqual(removed.state.slides[0]?.elements[0]?.animations, [
+    {
+      type: "pulse",
+      duration: 500,
+      delay: 0,
+      easing: "ease-in-out",
+      repeat: "infinite",
+      interval: 0,
+    },
+  ]);
+  const serialized = serializePresentationState(removed.state);
+  assert.equal(serialized.success, true);
+  if (!serialized.success) return;
+  assert.equal(
+    deserializePresentationState(serialized.serializedState).success,
+    true,
+  );
+  const undone = undo(removed.state);
+  assert.equal(undone.success, true);
+  if (!undone.success) return;
+  assert.equal(undone.state.slides[0]?.elements[0]?.animations.length, 2);
+  const redone = redo(undone.state);
+  assert.equal(redone.success, true);
+  if (!redone.success) return;
+  assert.equal(redone.state.slides[0]?.elements[0]?.animations.length, 1);
+
+  const no_animation = remove_animation(redone.state, {
+    slideId: "slide_1",
+    elementId: "title_1",
+    category: "entrance",
+  });
+  assert.equal(no_animation.success, false);
+  assert.equal(no_animation.error.code, "VALIDATION_ERROR");
+  assert.deepEqual(no_animation.state, redone.state);
+});
+
 test("rejects typewriter for non-text elements without changing state", () => {
   const created_element = create_element(createStateWithSlide(), {
     slideId: "slide_1",
@@ -1826,6 +1899,45 @@ test("rejects invalid animation types and configurations without changing state"
   assert.equal(invalid_configuration.success, false);
   assert.equal(invalid_configuration.error.code, "VALIDATION_ERROR");
   assert.deepEqual(invalid_configuration.state, created_element.state);
+});
+
+test("persists finite entrance and exit animation timing after reload", () => {
+  const created = create_element(createStateWithSlide(), {
+    slideId: "slide_1",
+    element: {
+      id: "title_1",
+      type: "text",
+      content: "Before",
+      position: { x: 0, y: 0 },
+      size: { width: 400, height: 80 },
+      rotation: 0,
+      opacity: 1,
+    },
+  });
+  assert.equal(created.success, true);
+  const entrance = configure_animation(created.state, {
+    slideId: "slide_1",
+    elementId: "title_1",
+    type: "fade-in",
+    configuration: { duration: 720, delay: 180, easing: "ease-in-out" },
+  });
+  assert.equal(entrance.success, true);
+  const exit = configure_animation(entrance.state, {
+    slideId: "slide_1",
+    elementId: "title_1",
+    type: "fade-out",
+    configuration: { duration: 420, delay: 60, easing: "linear" },
+  });
+  assert.equal(exit.success, true);
+
+  const serialized = serializePresentationState(exit.state);
+  assert.equal(serialized.success, true);
+  const restored = deserializePresentationState(serialized.serializedState);
+  assert.equal(restored.success, true);
+  assert.deepEqual(restored.state.slides[0].elements[0].animations, [
+    { type: "fade-in", duration: 720, delay: 180, easing: "ease-in-out" },
+    { type: "fade-out", duration: 420, delay: 60, easing: "linear" },
+  ]);
 });
 
 test("configures and validates slide transitions", () => {

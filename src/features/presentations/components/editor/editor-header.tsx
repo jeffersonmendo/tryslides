@@ -14,6 +14,8 @@ import {
   IconMessageCircle,
   IconMinus,
   IconPhotoPlus,
+  IconPlayerPause,
+  IconPlayerPlay,
   IconPlus,
   IconRectangle,
   IconStar,
@@ -26,6 +28,7 @@ import * as Lucide from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ChangeEvent, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +41,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { ShapeType } from "@/features/presentations/core/presentation-core";
 
 type EditorHeaderProps = {
@@ -49,10 +57,12 @@ type EditorHeaderProps = {
   readonly onCreateText: () => void;
   readonly onUploadImages: (files: readonly File[]) => void;
   readonly onUndo: () => void;
+  readonly isSlidePlaybackActive: boolean;
+  readonly onPreviewSlideAnimations: () => void;
 };
 
 export function EditorHeader({
-  title,
+  title: _title,
   canRedo,
   canUndo,
   onRedo,
@@ -60,6 +70,8 @@ export function EditorHeader({
   onCreateText,
   onUploadImages,
   onUndo,
+  isSlidePlaybackActive,
+  onPreviewSlideAnimations,
 }: EditorHeaderProps) {
   const image_input_ref = useRef<HTMLInputElement>(null);
   const t = useTranslations("Editor");
@@ -71,7 +83,39 @@ export function EditorHeader({
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 rounded-2xl dark:bg-sidebar bg-white px-4">
-      <h1 className="truncate text-sm">{title}</h1>
+      <div>
+        <Tooltip disableHoverablePopup>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={
+                  isSlidePlaybackActive
+                    ? t("pauseSlidePlayback")
+                    : t("playSlidePlayback")
+                }
+                size="icon"
+                type="button"
+                variant="secondary"
+                onClick={onPreviewSlideAnimations}
+              >
+                {isSlidePlaybackActive ? (
+                  <IconPlayerPause data-icon="inline-start" />
+                ) : (
+                  <IconPlayerPlay data-icon="inline-start" />
+                )}
+              </Button>
+            }
+          />
+          <TooltipContent>
+            {isSlidePlaybackActive
+              ? t("pauseSlidePlayback")
+              : t("playSlidePlayback")}
+          </TooltipContent>
+        </Tooltip>
+        <Button size="icon" type="button" variant="secondary">
+          <Lucide.Presentation />
+        </Button>
+      </div>
       <div className="flex items-center gap-1">
         <Button size="icon" type="button" variant="ghost">
           <Lucide.PenTool data-icon="inline-start" />
@@ -258,24 +302,26 @@ export function EditorHeader({
         <div>
           <Separator className={"h-6"} orientation="vertical" />
         </div>
-        <Button
-          aria-label={t("undo")}
-          disabled={!canUndo}
-          size="icon"
-          variant="ghost"
-          onClick={onUndo}
-        >
-          <IconArrowBackUp data-icon="inline-start" />
-        </Button>
-        <Button
-          aria-label={t("redo")}
-          disabled={!canRedo}
-          size="icon"
-          variant="ghost"
-          onClick={onRedo}
-        >
-          <IconArrowForwardUp data-icon="inline-start" />
-        </Button>
+        <ButtonGroup>
+          <Button
+            aria-label={t("undo")}
+            disabled={!canUndo}
+            size="icon"
+            variant="ghost"
+            onClick={onUndo}
+          >
+            <IconArrowBackUp data-icon="inline-start" />
+          </Button>
+          <Button
+            aria-label={t("redo")}
+            disabled={!canRedo}
+            size="icon"
+            variant="ghost"
+            onClick={onRedo}
+          >
+            <IconArrowForwardUp data-icon="inline-start" />
+          </Button>
+        </ButtonGroup>
       </div>
     </header>
   );

@@ -4,6 +4,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes editor-typewriter-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 @font-face {
   font-family: "Geist";
   font-style: normal;
